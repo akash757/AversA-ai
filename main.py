@@ -1,11 +1,17 @@
 from fastapi import FastAPI
 import uvicorn
+from app.routes import health_router, day_one_router
 
-app = FastAPI()
+app = FastAPI(
+    title="Thunder Agent AI Service",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+# Register routes
+app.include_router(health_router)
+app.include_router(day_one_router)
 
 
 if __name__ == "__main__":
