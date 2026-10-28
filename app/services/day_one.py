@@ -1,41 +1,15 @@
-import json
 from pathlib import Path
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import List
 
-from app.config import settings
 from app.llm.gemini_llm import get_gemini_llm
 from app.schemas.day_one import (
     DayOneSuggestionsRequest,
     DayOneSuggestionsResponse,
     SuggestionItem,
-    KnownTopicKey,
+    LLMSuggestionItem,
+    LLMResponseOutput,
+    VALID_TOPIC_KEYS,
 )
-
-# Lenient schema for LLM structured output to prevent crashes on minor edge cases
-class _LLMSuggestionItem(BaseModel):
-    action: str = Field(description="add or mark_not_relevant")
-    topicKey: str = Field(description="One of the 8 topic keys")
-    templateId: Optional[str] = Field(None, description="templateId for mark_not_relevant")
-    text: Optional[str] = Field(None, description="Question text for add")
-    reason: str = Field(..., description="Reason tied to the brief")
-
-
-class _LLMResponseOutput(BaseModel):
-    briefTooThin: bool = Field(description="True if the brief lacks enough substance")
-    suggestions: List[_LLMSuggestionItem] = Field(default_factory=list)
-
-
-VALID_TOPIC_KEYS = {
-    "problem",
-    "users",
-    "goals",
-    "features",
-    "existing_systems",
-    "constraints",
-    "people",
-    "next_steps",
-}
 
 
 class DayOneService:
@@ -105,14 +79,14 @@ Return your analysis strictly according to the output rules.
 
         # Call Gemini LLM with structured output
         llm = get_gemini_llm()
-        structured_llm = llm.with_structured_output(_LLMResponseOutput)
+        structured_llm = llm.with_structured_output(LLMResponseOutput)
 
         messages = [
             ("system", system_prompt),
             ("human", user_content),
         ]
 
-        llm_result: _LLMResponseOutput = structured_llm.invoke(messages)
+        llm_result: LLMResponseOutput = structured_llm.invoke(messages)
 
         # Map template lookup for validation: id -> TemplateItem
         template_map = {t.id: t for t in request.templates}

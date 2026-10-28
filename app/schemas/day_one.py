@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Set
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 KnownTopicKey = Literal[
@@ -11,6 +11,17 @@ KnownTopicKey = Literal[
     "people",
     "next_steps",
 ]
+
+VALID_TOPIC_KEYS: Set[str] = {
+    "problem",
+    "users",
+    "goals",
+    "features",
+    "existing_systems",
+    "constraints",
+    "people",
+    "next_steps",
+}
 
 SuggestionAction = Literal["add", "mark_not_relevant"]
 
@@ -121,3 +132,17 @@ class DayOneSuggestionsResponse(BaseModel):
                 if item.action != "add":
                     raise ValueError("When briefTooThin is true, only 'add' actions are allowed")
         return self
+
+
+# Lenient schemas for LLM structured output to prevent crashes on minor model format variations
+class LLMSuggestionItem(BaseModel):
+    action: str = Field(description="add or mark_not_relevant")
+    topicKey: str = Field(description="One of the 8 topic keys")
+    templateId: Optional[str] = Field(None, description="templateId for mark_not_relevant")
+    text: Optional[str] = Field(None, description="Question text for add")
+    reason: str = Field(..., description="Reason tied to the brief")
+
+
+class LLMResponseOutput(BaseModel):
+    briefTooThin: bool = Field(description="True if the brief lacks enough substance")
+    suggestions: List[LLMSuggestionItem] = Field(default_factory=list)

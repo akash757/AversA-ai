@@ -5,6 +5,9 @@ from app.schemas.day_one import (
     DayOneSuggestionsRequest,
     SuggestionItem,
     DayOneSuggestionsResponse,
+    LLMSuggestionItem,
+    LLMResponseOutput,
+    VALID_TOPIC_KEYS,
 )
 
 __all__ = [
@@ -14,5 +17,7 @@ __all__ = [
     "DayOneSuggestionsRequest",
     "SuggestionItem",
     "DayOneSuggestionsResponse",
+    "LLMSuggestionItem",
+    "LLMResponseOutput",
+    "VALID_TOPIC_KEYS",
 ]
-
