@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from app.middlewares.auth import verify_service_token
 from app.schemas.day_one import (
     DayOneSuggestionsRequest,
@@ -18,5 +18,21 @@ day_one_router = APIRouter(
     response_model=DayOneSuggestionsResponse,
 )
 def get_day_one_suggestions(request: DayOneSuggestionsRequest):
-    return day_one_service.get_suggestions(request)
-
+    try:
+        return day_one_service.get_suggestions(request)
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Model call timed out: {str(exc)}",
+        )
+    except Exception as exc:
+        err_msg = str(exc)
+        if "timed out" in err_msg.lower() or "timeout" in err_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail=f"Model call timed out: {err_msg}",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"The model failed: {err_msg}",
+        )

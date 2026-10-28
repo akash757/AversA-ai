@@ -1,0 +1,2 @@
+We run an artisan ceramic tableware brand and want to build a custom direct-to-consumer e-commerce storefront with Shopify backend integration for inventory and orders. We need customer accounts, product filtering by glaze and collection, and Stripe checkout. Launch is planned ahead of the holiday shopping season in November.
+

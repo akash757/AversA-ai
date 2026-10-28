@@ -1,0 +1,2 @@
+Mobile and desktop app where users view CGM glucose readings and log meals. Frequent meals can be saved for quick re-logging. The client wants a first demo within two months.
+

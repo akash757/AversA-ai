@@ -1,5 +1,5 @@
 from typing import List, Optional, Literal
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 KnownTopicKey = Literal[
     "problem",
@@ -20,28 +20,87 @@ class TemplateItem(BaseModel):
     topicKey: KnownTopicKey = Field(..., description="One of the 8 predefined topic keys")
     text: str = Field(..., min_length=1, description="The template question text")
 
+    @field_validator("id", "text", mode="before")
+    @classmethod
+    def strip_strings(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                raise ValueError("Must not be empty or whitespace-only")
+        return v
+
 
 class DayOneSuggestionsRequest(BaseModel):
-    projectId: str = Field(..., description="Project ID used for logging and tracing only")
-    brief: str = Field(default="", description="The project brief text")
+    projectId: str = Field(..., min_length=1, description="Project ID used for logging and tracing only")
+    brief: str = Field(..., min_length=1, max_length=10000, description="The project brief text")
     templates: List[TemplateItem] = Field(default_factory=list, description="List of baseline template questions")
+
+    @field_validator("brief", "projectId", mode="before")
+    @classmethod
+    def strip_text(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                raise ValueError("Must not be empty or whitespace-only")
+        return v
+
+    @field_validator("templates")
+    @classmethod
+    def validate_unique_template_ids(cls, v: List[TemplateItem]) -> List[TemplateItem]:
+        seen_ids = set()
+        for item in v:
+            if item.id in seen_ids:
+                raise ValueError(f"Duplicate template ID found: '{item.id}'")
+            seen_ids.add(item.id)
+        return v
 
 
 class SuggestionItem(BaseModel):
     action: SuggestionAction = Field(..., description="Action to perform: 'add' or 'mark_not_relevant'")
     topicKey: KnownTopicKey = Field(..., description="Must be one of the 8 known topics")
-    templateId: Optional[str] = Field(None, description="Required when action is 'mark_not_relevant'")
-    text: Optional[str] = Field(None, description="Question text, required when action is 'add'")
+    templateId: Optional[str] = Field(None, description="Set only when action is 'mark_not_relevant'")
+    text: Optional[str] = Field(None, description="Set only when action is 'add'")
     reason: str = Field(..., min_length=1, description="Reason referring specifically to something in the brief")
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def strip_reason(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                raise ValueError("Reason cannot be empty or whitespace-only")
+        return v
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def strip_text(cls, v: Optional[str]) -> Optional[str]:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return None
+        return v
+
+    @field_validator("templateId", mode="before")
+    @classmethod
+    def strip_template_id(cls, v: Optional[str]) -> Optional[str]:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return None
+        return v
 
     @model_validator(mode="after")
     def validate_action_fields(self):
         if self.action == "mark_not_relevant":
-            if not self.templateId or not self.templateId.strip():
+            if not self.templateId:
                 raise ValueError("templateId is required when action is 'mark_not_relevant'")
+            if self.text is not None:
+                raise ValueError("text must be null when action is 'mark_not_relevant'")
         elif self.action == "add":
-            if not self.text or not self.text.strip():
+            if not self.text:
                 raise ValueError("text is required when action is 'add'")
+            if self.templateId is not None:
+                raise ValueError("templateId must be null when action is 'add'")
         return self
 
 
@@ -50,7 +109,7 @@ class DayOneSuggestionsResponse(BaseModel):
     suggestions: List[SuggestionItem] = Field(
         default_factory=list,
         max_length=8,
-        description="List of suggestions, capped at 8 items"
+        description="List of suggestions, capped at 8 items",
     )
 
     @model_validator(mode="after")
