@@ -10,6 +10,7 @@ from app.schemas.day_one import (
     LLMResponseOutput,
     VALID_TOPIC_KEYS,
 )
+from app.utils.logger import logger
 
 
 class DayOneService:
@@ -23,15 +24,21 @@ class DayOneService:
     def _load_system_prompt(self) -> str:
         if self._prompt_path.exists():
             return self._prompt_path.read_text(encoding="utf-8")
+        logger.critical(f"System prompt file missing at: {self._prompt_path}")
         raise FileNotFoundError(f"Prompt file not found at: {self._prompt_path}")
 
     def get_suggestions(
         self, request: DayOneSuggestionsRequest
     ) -> DayOneSuggestionsResponse:
         brief_stripped = request.brief.strip()
+        logger.debug(f"Processing brief with {len(brief_stripped)} characters and {len(request.templates)} templates")
 
         # Quick shortcut for very thin briefs (< 20 chars) to skip LLM call
         if len(brief_stripped) < 20:
+            logger.warning(
+                f"Project brief is too thin ({len(brief_stripped)} chars < 20). "
+                "Returning standard default clarification suggestions without calling LLM."
+            )
             return DayOneSuggestionsResponse(
                 briefTooThin=True,
                 suggestions=[
@@ -78,15 +85,24 @@ Return your analysis strictly according to the output rules.
 """
 
         # Call Gemini LLM with structured output
-        llm = get_gemini_llm()
-        structured_llm = llm.with_structured_output(LLMResponseOutput)
+        logger.info("Calling Gemini LLM for Day One suggestions...")
+        try:
+            llm = get_gemini_llm()
+            structured_llm = llm.with_structured_output(LLMResponseOutput)
 
-        messages = [
-            ("system", system_prompt),
-            ("human", user_content),
-        ]
+            messages = [
+                ("system", system_prompt),
+                ("human", user_content),
+            ]
 
-        llm_result: LLMResponseOutput = structured_llm.invoke(messages)
+            llm_result: LLMResponseOutput = structured_llm.invoke(messages)
+            logger.debug(
+                f"LLM returned {len(llm_result.suggestions)} raw suggestions "
+                f"(briefTooThin={llm_result.briefTooThin})"
+            )
+        except Exception as exc:
+            logger.critical(f"LLM call failed during suggestions generation: {exc}", exc_info=True)
+            raise
 
         # Map template lookup for validation: id -> TemplateItem
         template_map = {t.id: t for t in request.templates}
@@ -110,6 +126,7 @@ Return your analysis strictly according to the output rules.
                 raw_tid = raw_item.templateId.strip() if raw_item.templateId else None
                 if not raw_tid or raw_tid not in template_map:
                     # Template was not in the sent list, skip
+                    logger.debug(f"Skipping unknown template ID in mark_not_relevant: {raw_tid}")
                     continue
 
                 # Ensure topicKey matches the template's actual topic
@@ -130,6 +147,7 @@ Return your analysis strictly according to the output rules.
                     continue
 
                 if topic_key not in VALID_TOPIC_KEYS:
+                    logger.debug(f"Remapping unrecognized topicKey '{topic_key}' to 'problem'")
                     topic_key = "problem"
 
                 sanitized_suggestions.append(
@@ -149,6 +167,11 @@ Return your analysis strictly according to the output rules.
         else:
             # Normal brief: cap at 8 suggestions
             sanitized_suggestions = sanitized_suggestions[:8]
+
+        logger.info(
+            f"Final sanitized suggestion count: {len(sanitized_suggestions)} "
+            f"(briefTooThin={is_thin})"
+        )
 
         return DayOneSuggestionsResponse(
             briefTooThin=is_thin,
