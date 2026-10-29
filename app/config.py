@@ -9,7 +9,7 @@ ENV_FILE = BASE_DIR / ".env"
 class Settings(BaseSettings):
     INTERNAL_SERVICE_TOKEN: str
     GOOGLE_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     LANGSMITH_TRACING: bool = False
     LANGSMITH_API_KEY: str = ""
     LANGCHAIN_PROJECT: str = "the-thunder-agent"
