@@ -9,6 +9,21 @@ from app.schemas.day_one import (
     LLMResponseOutput,
     VALID_TOPIC_KEYS,
 )
+from app.schemas.transcript_analysis import (
+    ExtractedItemType,
+    ExtractionConfidence,
+    ParticipantParty,
+    ProjectQuestionInput,
+    ParticipantInput,
+    TranscriptAnalysisRequest,
+    RawLLMExtractedItem,
+    RawChunkExtractionLLMResponse,
+    RawLLMFollowUpQuestion,
+    RawFollowUpLLMResponse,
+    ExtractedItemOutput,
+    FollowUpQuestionOutput,
+    TranscriptAnalysisResponse,
+)
 
 __all__ = [
     "KnownTopicKey",
@@ -20,4 +35,17 @@ __all__ = [
     "LLMSuggestionItem",
     "LLMResponseOutput",
     "VALID_TOPIC_KEYS",
+    "ExtractedItemType",
+    "ExtractionConfidence",
+    "ParticipantParty",
+    "ProjectQuestionInput",
+    "ParticipantInput",
+    "TranscriptAnalysisRequest",
+    "RawLLMExtractedItem",
+    "RawChunkExtractionLLMResponse",
+    "RawLLMFollowUpQuestion",
+    "RawFollowUpLLMResponse",
+    "ExtractedItemOutput",
+    "FollowUpQuestionOutput",
+    "TranscriptAnalysisResponse",
 ]
