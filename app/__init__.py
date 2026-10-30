@@ -1,2 +1,2 @@
-"""Thunder Agent AI package."""
+"""AversA Agent AI package."""
 

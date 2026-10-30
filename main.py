@@ -5,7 +5,7 @@ from app.routes import health_router, day_one_router, transcript_analysis_router
 from app.utils.logger import logger
 
 app = FastAPI(
-    title="Thunder Agent AI Service",
+    title="AversA AI Service",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -48,7 +48,7 @@ app.include_router(health_router)
 app.include_router(day_one_router)
 app.include_router(transcript_analysis_router)
 
-logger.info("Thunder Agent AI Service ready. Registered routers: health, day_one, transcript_analysis")
+logger.info("AversA Agent AI Service ready. Registered routers: health, day_one, transcript_analysis")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -36,7 +36,7 @@ class ColoredFormatter(logging.Formatter):
         return f"{dim}{timestamp}{reset} {level_label} {logger_name} {message}"
 
 
-def setup_logger(name: str = "thunder_agent_ai") -> logging.Logger:
+def setup_logger(name: str = "AversA_agent_ai") -> logging.Logger:
     """Configures and returns a logger instance with structured, colored formatting."""
     logger = logging.getLogger(name)
 

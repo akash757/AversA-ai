@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     DEFAULT_TIMEZONE: str = "Asia/Kolkata"
     LANGSMITH_TRACING: bool = False
     LANGSMITH_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "the-thunder-agent"
+    LANGCHAIN_PROJECT: str = "the-AversA-agent"
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),

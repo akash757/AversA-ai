@@ -1,2 +1,2 @@
-# thunder-agent-ai
-AI repo for thunder agent
+# AversA-agent-ai
+AI repo for AversA agent

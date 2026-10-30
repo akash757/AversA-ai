@@ -3,10 +3,4 @@ __pycache__/
 .venv/
 venv/
 .env
-.vercel/
-
-.venv/
-.env
-__pycache__/
-*.py[cod]
 .pytest_cache/
