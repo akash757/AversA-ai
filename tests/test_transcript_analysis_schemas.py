@@ -151,17 +151,34 @@ def test_date_resolver_rules():
     # Wednesday, Oct 28, 2026 10:00 UTC (15:30 IST on same date)
     meeting = datetime(2026, 10, 28, 10, 0, tzinfo=timezone.utc)
 
-    # "today" -> 2026-10-28
+    # "today" and variations -> 2026-10-28
     assert resolve_due_date("today", meeting) == "2026-10-28"
+    assert resolve_due_date("by end of the day", meeting) == "2026-10-28"
+    assert resolve_due_date("by end of today", meeting) == "2026-10-28"
+    assert resolve_due_date("eod", meeting) == "2026-10-28"
 
-    # "tomorrow" -> 2026-10-29
+    # "tomorrow" and variations -> 2026-10-29
     assert resolve_due_date("tomorrow", meeting) == "2026-10-29"
+    assert resolve_due_date("by tomorrow afternoon", meeting) == "2026-10-29"
+    assert resolve_due_date("tomorrow EOD", meeting) == "2026-10-29"
+    assert resolve_due_date("by tomorrow evening", meeting) == "2026-10-29"
+
+    # "day after tomorrow" -> 2026-10-30
+    assert resolve_due_date("day after tomorrow", meeting) == "2026-10-30"
+
+    # "in N days"
+    assert resolve_due_date("in two days", meeting) == "2026-10-30"
+    assert resolve_due_date("in 3 days", meeting) == "2026-10-31"
 
     # "by Friday" -> next Friday is Oct 30, 2026
     assert resolve_due_date("by Friday", meeting) == "2026-10-30"
 
     # "by Monday" -> next Monday is Nov 2, 2026
     assert resolve_due_date("by Monday", meeting) == "2026-11-02"
+
+    # "next <weekday>" is ambiguous -> returns None to let PM confirm
+    assert resolve_due_date("next Friday", meeting) is None
+    assert resolve_due_date("next Monday", meeting) is None
 
     # Vague phrase -> None
     assert resolve_due_date("next week", meeting) is None
