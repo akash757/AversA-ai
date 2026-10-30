@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 import re
 
 from app.schemas.transcript_analysis import (
@@ -31,6 +31,26 @@ def neutralize_tags(text: Optional[str]) -> str:
     return _CLOSING_TAGS_PATTERN.sub("< /neutralized_tag>", text)
 
 
+def sanitize_line_field(text: Optional[str]) -> str:
+    """
+    Collapses internal whitespace and newlines to single spaces and neutralizes tags.
+    Prevents participant names or question text from creating fake injected lines.
+    """
+    if not text:
+        return ""
+    collapsed = re.sub(r"\s+", " ", text).strip()
+    return neutralize_tags(collapsed)
+
+
+def single_pass_substitute(template: str, mapping: Dict[str, str]) -> str:
+    """
+    Substitutes all placeholders in a single pass using regex callback.
+    Prevents re-substitution attacks (e.g. participant named '{transcript}').
+    """
+    pattern = re.compile("|".join(re.escape(k) for k in mapping.keys()))
+    return pattern.sub(lambda m: mapping[m.group(0)], template)
+
+
 def render_extraction_user_message(
     chunk_index: int,
     chunk_total: int,
@@ -39,12 +59,12 @@ def render_extraction_user_message(
     chunk: str,
 ) -> str:
     """
-    Renders extraction user message using .replace() on the raw template string.
-    Never uses f-strings to prevent curly brace collision from transcript code/JSON.
+    Renders extraction user message using single-pass substitution.
+    Never uses f-strings or sequential replace to prevent re-substitution or curly brace collisions.
     """
     if participants:
         p_lines = [
-            f"{p.id} | {neutralize_tags(p.name)} | {p.party}"
+            f"{sanitize_line_field(p.id)} | {sanitize_line_field(p.name)} | {sanitize_line_field(p.party)}"
             for p in participants
         ]
         p_text = "\n".join(p_lines)
@@ -53,7 +73,7 @@ def render_extraction_user_message(
 
     if questions:
         q_lines = [
-            f"{q.id} | {q.topic} | {neutralize_tags(q.text)}"
+            f"{sanitize_line_field(q.id)} | {sanitize_line_field(q.topic)} | {sanitize_line_field(q.text)}"
             for q in questions
         ]
         q_text = "\n".join(q_lines)
@@ -62,13 +82,14 @@ def render_extraction_user_message(
 
     clean_chunk = neutralize_tags(chunk.strip()) if chunk else "(none)"
 
-    msg = _EXTRACTION_USER_TEMPLATE
-    msg = msg.replace("{chunk_index}", str(chunk_index))
-    msg = msg.replace("{chunk_total}", str(chunk_total))
-    msg = msg.replace("{participants}", p_text)
-    msg = msg.replace("{open_questions}", q_text)
-    msg = msg.replace("{transcript}", clean_chunk)
-    return msg
+    mapping = {
+        "{chunk_index}": str(chunk_index),
+        "{chunk_total}": str(chunk_total),
+        "{participants}": p_text,
+        "{open_questions}": q_text,
+        "{transcript}": clean_chunk,
+    }
+    return single_pass_substitute(_EXTRACTION_USER_TEMPLATE, mapping)
 
 
 def render_follow_up_user_message(
@@ -77,8 +98,8 @@ def render_follow_up_user_message(
     items: List[ExtractedItemOutput],
 ) -> str:
     """
-    Renders follow-up user message using .replace() on the raw template string.
-    Binds items to at most 100 items, highest confidence first.
+    Renders follow-up user message using single-pass substitution.
+    Binds items to at most 100 items, highest confidence first, with collapsed whitespace.
     """
     # 1. Brief
     if brief and brief.strip():
@@ -89,7 +110,7 @@ def render_follow_up_user_message(
     # 2. Existing Questions: que_123 | features | answered | What must the first release include?
     if questions:
         q_lines = [
-            f"{q.id} | {q.topic} | {q.status or 'pending'} | {neutralize_tags(q.text)}"
+            f"{sanitize_line_field(q.id)} | {sanitize_line_field(q.topic)} | {sanitize_line_field(q.status or 'pending')} | {sanitize_line_field(q.text)}"
             for q in questions
         ]
         q_text = "\n".join(q_lines)
@@ -103,18 +124,18 @@ def render_follow_up_user_message(
     if sorted_items:
         i_lines = []
         for it in sorted_items:
-            # Trim text to max 300 characters
-            raw_text = neutralize_tags(it.text)
-            trimmed_text = raw_text[:300] if len(raw_text) > 300 else raw_text
+            # Trim text to max 300 characters with whitespace collapsed
+            sanitized_text = sanitize_line_field(it.text)
+            trimmed_text = sanitized_text[:300] if len(sanitized_text) > 300 else sanitized_text
 
             if it.type == "answer":
-                line = f"answer | {it.confidence} | {trimmed_text} | answers: {it.questionId or 'unknown'}"
+                line = f"answer | {it.confidence} | {trimmed_text} | answers: {sanitize_line_field(it.questionId) or 'unknown'}"
             elif it.type == "action_item":
                 parts = [f"action_item | {it.confidence} | {trimmed_text}"]
                 if it.ownerName:
-                    parts.append(f"owner: {neutralize_tags(it.ownerName)}")
+                    parts.append(f"owner: {sanitize_line_field(it.ownerName)}")
                 if it.duePhrase:
-                    parts.append(f"due: {neutralize_tags(it.duePhrase)}")
+                    parts.append(f"due: {sanitize_line_field(it.duePhrase)}")
                 line = " | ".join(parts)
             elif it.type == "decision":
                 line = f"decision | {it.confidence} | {trimmed_text}"
@@ -127,8 +148,9 @@ def render_follow_up_user_message(
     else:
         i_text = "(none)"
 
-    msg = _FOLLOW_UP_USER_TEMPLATE
-    msg = msg.replace("{brief}", clean_brief)
-    msg = msg.replace("{existing_questions}", q_text)
-    msg = msg.replace("{extracted_items}", i_text)
-    return msg
+    mapping = {
+        "{brief}": clean_brief,
+        "{existing_questions}": q_text,
+        "{extracted_items}": i_text,
+    }
+    return single_pass_substitute(_FOLLOW_UP_USER_TEMPLATE, mapping)

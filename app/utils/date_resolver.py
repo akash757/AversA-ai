@@ -2,7 +2,8 @@ from typing import Optional
 from datetime import datetime, date, timedelta, timezone
 import re
 
-DEFAULT_TIMEZONE = "Asia/Kolkata"
+from app.config import settings
+
 IST = timezone(timedelta(hours=5, minutes=30))
 
 WEEKDAYS = {
@@ -37,16 +38,16 @@ NUMBER_WORDS = {
 }
 
 
-def _get_tz(timezone_str: str) -> timezone:
+def _get_tz(timezone_str: Optional[str] = None) -> timezone:
     """Returns a timezone object supporting Windows without requiring external tzdata."""
-    norm = (timezone_str or "").strip().lower()
-    if norm in ("asia/kolkata", "ist", "asia/calcutta"):
+    tz_name = (timezone_str or getattr(settings, "DEFAULT_TIMEZONE", "Asia/Kolkata")).strip().lower()
+    if tz_name in ("asia/kolkata", "ist", "asia/calcutta"):
         return IST
-    if norm in ("utc", "z", "gmt"):
+    if tz_name in ("utc", "z", "gmt"):
         return timezone.utc
     try:
         from zoneinfo import ZoneInfo
-        return ZoneInfo(timezone_str)
+        return ZoneInfo(tz_name)
     except Exception:
         return timezone.utc
 
@@ -54,18 +55,19 @@ def _get_tz(timezone_str: str) -> timezone:
 def resolve_due_date(
     due_phrase: Optional[str],
     meeting_date: Optional[datetime],
-    timezone_str: str = DEFAULT_TIMEZONE,
+    timezone_str: Optional[str] = None,
 ) -> Optional[str]:
     """
     Deterministically resolves a spoken due phrase against a meeting timestamp.
     
     Fixed rules:
     - "day after tomorrow": meeting date + 2 days.
-    - "tomorrow" (e.g. "by tomorrow afternoon", "tomorrow EOD"): meeting date + 1 day.
+    - "tomorrow" as a word anywhere (e.g. "by tomorrow afternoon", "tomorrow EOD"): meeting date + 1 day.
     - "today" (e.g. "by end of the day", "eod", "today"): meeting date in local timezone.
     - "in N days" / "in two days": meeting date + N days.
     - "next <weekday>" (e.g. "next Friday"): ambiguous, returns None to let PM confirm.
-    - "<weekday>" (e.g. "by Friday", "this Friday"): next occurrence after meeting date.
+    - "<weekday>" (e.g. "by Friday", "this Friday"): next occurrence strictly after the meeting day.
+      NOTE: If a call occurs on a Friday and a speaker says "by Friday", it resolves to next Friday (+7 days).
     - Vague phrases ("next week", "soon", "by end of sprint"): returns None.
     
     Returns ISO date string 'YYYY-MM-DD' or None.
@@ -120,7 +122,7 @@ def resolve_due_date(
             current_weekday = anchor_date.weekday()
             days_ahead = (target_weekday - current_weekday) % 7
             if days_ahead == 0:
-                # If meeting is on Friday and speaker says "by Friday", refers to next occurrence (+7)
+                # If meeting is on Friday and speaker says "by Friday", refers to next occurrence (+7 days)
                 days_ahead = 7
             return (anchor_date + timedelta(days=days_ahead)).isoformat()
 

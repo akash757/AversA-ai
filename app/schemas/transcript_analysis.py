@@ -1,7 +1,7 @@
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator, model_validator
-from app.schemas.day_one import KnownTopicKey, VALID_TOPIC_KEYS
+from app.schemas.day_one import KnownTopicKey
 
 # Enums matching Postgres schema
 ExtractedItemType = Literal["answer", "action_item", "decision", "requirement"]
@@ -119,7 +119,7 @@ class RawLLMExtractedItem(BaseModel):
     type: Optional[str] = Field(None, description="Item type: answer, action_item, decision, or requirement")
     text: Optional[str] = Field(None, description="Extracted statement")
     confidence: Optional[str] = Field(None, description="Confidence: low, medium, or high")
-    evidenceLineNumbers: Optional[List[int]] = Field(default_factory=list, description="Citations")
+    evidenceLineNumbers: Optional[Any] = Field(default_factory=list, description="Citations (any type, cleaned in code)")
     questionId: Optional[str] = Field(None, description="Question ID if answer")
     ownerParticipantId: Optional[str] = Field(None, description="Participant ID if action item")
     ownerName: Optional[str] = Field(None, description="Owner name if action item")
