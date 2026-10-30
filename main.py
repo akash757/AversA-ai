@@ -1,7 +1,7 @@
 import time
 from fastapi import FastAPI, Request
 import uvicorn
-from app.routes import health_router, day_one_router
+from app.routes import health_router, day_one_router, transcript_analysis_router
 from app.utils.logger import logger
 
 app = FastAPI(
@@ -46,8 +46,9 @@ async def log_requests(request: Request, call_next):
 # Register routes
 app.include_router(health_router)
 app.include_router(day_one_router)
+app.include_router(transcript_analysis_router)
 
-logger.info("Thunder Agent AI Service ready. Registered routers: health, day_one")
+logger.info("Thunder Agent AI Service ready. Registered routers: health, day_one, transcript_analysis")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

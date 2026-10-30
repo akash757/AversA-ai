@@ -106,6 +106,67 @@ class TranscriptAnalysisRequest(BaseModel):
         return v
 
 
+def coerce_evidence_line_numbers(val: Any) -> List[int]:
+    """
+    Coerces raw evidence citations into a list of positive integers.
+    Accepts:
+    - Lists/tuples of ints, floats, strings, or mixed types
+    - Single scalars (e.g. 5, "5", 12.0)
+    - Comma-separated strings (e.g. "12, 13")
+    Discards non-positive numbers, fractional floats, booleans, and non-numeric strings.
+    Deduplicates while preserving initial encounter order.
+    """
+    if val is None:
+        return []
+
+    # Flatten single scalar or collection into items list
+    items: List[Any] = []
+    if isinstance(val, (list, tuple, set)):
+        items = list(val)
+    elif isinstance(val, (int, float, str)):
+        if isinstance(val, str) and "," in val:
+            items = val.split(",")
+        else:
+            items = [val]
+    else:
+        return []
+
+    clean: List[int] = []
+    seen = set()
+
+    for item in items:
+        if item is None:
+            continue
+        # In Python, bool is a subclass of int (True == 1), so exclude booleans explicitly
+        if isinstance(item, bool):
+            continue
+
+        num: Optional[int] = None
+        if isinstance(item, int):
+            num = item
+        elif isinstance(item, float):
+            if item.is_integer():
+                num = int(item)
+        elif isinstance(item, str):
+            s = item.strip()
+            # Handle possible stringified int or whole float like "12.0"
+            if s.isdigit() or (s.startswith("+") and s[1:].isdigit()):
+                num = int(s)
+            else:
+                try:
+                    f = float(s)
+                    if f.is_integer():
+                        num = int(f)
+                except Exception:
+                    num = None
+
+        if num is not None and num > 0 and num not in seen:
+            seen.add(num)
+            clean.append(num)
+
+    return clean
+
+
 # ==============================================================================
 # Lenient Raw LLM-Facing Output Models (No Raising Validators)
 # ==============================================================================
@@ -113,17 +174,23 @@ class TranscriptAnalysisRequest(BaseModel):
 class RawLLMExtractedItem(BaseModel):
     """
     Lenient model for individual items returned by LLM in chunk extraction.
-    Fields are permissive strings/lists to prevent a single malformed item from discarding the chunk.
+    Typed as Optional[List[int]] so Gemini schema receives an array of integers.
+    Pre-validator coerces scalars, strings, and mixed types without throwing.
     Filtering and strict conversion occur in service code.
     """
     type: Optional[str] = Field(None, description="Item type: answer, action_item, decision, or requirement")
     text: Optional[str] = Field(None, description="Extracted statement")
     confidence: Optional[str] = Field(None, description="Confidence: low, medium, or high")
-    evidenceLineNumbers: Optional[Any] = Field(default_factory=list, description="Citations (any type, cleaned in code)")
+    evidenceLineNumbers: Optional[List[int]] = Field(default_factory=list, description="Line numbers in chunk citing this item")
     questionId: Optional[str] = Field(None, description="Question ID if answer")
     ownerParticipantId: Optional[str] = Field(None, description="Participant ID if action item")
     ownerName: Optional[str] = Field(None, description="Owner name if action item")
     duePhrase: Optional[str] = Field(None, description="Spoken due phrase if action item")
+
+    @field_validator("evidenceLineNumbers", mode="before")
+    @classmethod
+    def pre_clean_evidence(cls, v: Any) -> List[int]:
+        return coerce_evidence_line_numbers(v)
 
 
 class RawChunkExtractionLLMResponse(BaseModel):
@@ -181,15 +248,8 @@ class ExtractedItemOutput(BaseModel):
 
     @field_validator("evidenceLineNumbers", mode="before")
     @classmethod
-    def clean_evidence_line_numbers(cls, v: List[int]) -> List[int]:
-        if not isinstance(v, list) or not v:
-            raise ValueError("evidenceLineNumbers must be a non-empty list of integers")
-        seen = set()
-        clean = []
-        for item in v:
-            if isinstance(item, int) and item > 0 and item not in seen:
-                seen.add(item)
-                clean.append(item)
+    def clean_evidence_line_numbers(cls, v: Any) -> List[int]:
+        clean = coerce_evidence_line_numbers(v)
         if not clean:
             raise ValueError("evidenceLineNumbers must contain at least one positive integer")
         return clean

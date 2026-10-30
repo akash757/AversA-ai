@@ -23,6 +23,7 @@ from app.schemas.transcript_analysis import (
     ExtractedItemOutput,
     FollowUpQuestionOutput,
     TranscriptAnalysisResponse,
+    coerce_evidence_line_numbers,
 )
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "ExtractedItemOutput",
     "FollowUpQuestionOutput",
     "TranscriptAnalysisResponse",
+    "coerce_evidence_line_numbers",
 ]

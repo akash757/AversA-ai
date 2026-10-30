@@ -270,7 +270,7 @@ def test_user_templates_rendering():
     assert "par_hack | {transcript} | client" in attack_msg
     assert attack_msg.count("REAL_TRANSCRIPT_BODY") == 1
 
-    # 6. Newlines in participant names are collapsed to prevent fake line injection
+    # 6. Newlines in participant names are collapsed and pipes replaced with / to prevent fake line injection
     injection_msg = render_extraction_user_message(
         chunk_index=1,
         chunk_total=1,
@@ -279,19 +279,73 @@ def test_user_templates_rendering():
         chunk="[1] Hello",
     )
     assert "par_fake | Boss" not in injection_msg.splitlines()
-    assert "par_inject | Mark par_fake | Boss | client | client" in injection_msg
+    assert "par_inject | Mark par_fake / Boss / client | client" in injection_msg
 
 
-def test_raw_llm_accepts_any_evidence_type():
-    # Model produces strings or non-integers in evidence
-    raw = RawLLMExtractedItem(
+def test_coerce_evidence_line_numbers():
+    from app.schemas.transcript_analysis import coerce_evidence_line_numbers
+
+    # Scalar values
+    assert coerce_evidence_line_numbers(5) == [5]
+    assert coerce_evidence_line_numbers("5") == [5]
+    assert coerce_evidence_line_numbers(12.0) == [12]
+    assert coerce_evidence_line_numbers(12.5) == []
+    assert coerce_evidence_line_numbers(True) == []
+    assert coerce_evidence_line_numbers(False) == []
+    assert coerce_evidence_line_numbers(0) == []
+    assert coerce_evidence_line_numbers(-4) == []
+    assert coerce_evidence_line_numbers("-3") == []
+    assert coerce_evidence_line_numbers("bad") == []
+    assert coerce_evidence_line_numbers(None) == []
+
+    # Comma-separated string
+    assert coerce_evidence_line_numbers("12, 13") == [12, 13]
+
+    # Mixed collections and deduplication
+    assert coerce_evidence_line_numbers([1, "2", 3.0, 4.5, "five", None, 0, -1]) == [1, 2, 3]
+    assert coerce_evidence_line_numbers([2, 2, "2", 2.0]) == [2]
+
+
+def test_raw_llm_accepts_and_coerces_evidence():
+    # Model produces strings, scalars or mixed in evidence
+    raw1 = RawLLMExtractedItem(
         type="answer",
         text="Sample",
         confidence="high",
         evidenceLineNumbers=["1", "2", None, "bad"],
         questionId="q1",
     )
-    assert raw.evidenceLineNumbers == ["1", "2", None, "bad"]
+    assert raw1.evidenceLineNumbers == [1, 2]
+
+    # Model produces single scalar string
+    raw2 = RawLLMExtractedItem(
+        type="decision",
+        text="Sample decision",
+        confidence="medium",
+        evidenceLineNumbers="5",
+    )
+    assert raw2.evidenceLineNumbers == [5]
+
+    # Model produces float
+    raw3 = RawLLMExtractedItem(
+        type="requirement",
+        text="Sample req",
+        confidence="high",
+        evidenceLineNumbers=12.0,
+    )
+    assert raw3.evidenceLineNumbers == [12]
+
+
+def test_date_resolver_negation_and_disjunction():
+    from datetime import datetime, timezone
+    from app.utils.date_resolver import resolve_due_date
+
+    anchor = datetime(2026, 11, 2, 10, 0, tzinfo=timezone.utc)
+    # Negation and disjunction must return None
+    assert resolve_due_date("not tomorrow", anchor) is None
+    assert resolve_due_date("by tomorrow or the day after", anchor) is None
+    assert resolve_due_date("tomorrow or Wednesday", anchor) is None
+    assert resolve_due_date("not Friday", anchor) is None
 
 
 def test_config_default_timezone():

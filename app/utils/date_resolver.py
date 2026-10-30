@@ -76,6 +76,11 @@ def resolve_due_date(
         return None
 
     phrase = due_phrase.strip().lower()
+
+    # Reject negated or disjunctive phrases ("not tomorrow", "tomorrow or the day after")
+    if re.search(r"\b(?:not|or)\b", phrase):
+        return None
+
     tz = _get_tz(timezone_str)
 
     if meeting_date.tzinfo is None:

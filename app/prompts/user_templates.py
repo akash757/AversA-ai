@@ -33,12 +33,14 @@ def neutralize_tags(text: Optional[str]) -> str:
 
 def sanitize_line_field(text: Optional[str]) -> str:
     """
-    Collapses internal whitespace and newlines to single spaces and neutralizes tags.
-    Prevents participant names or question text from creating fake injected lines.
+    Replaces '|' with '/' to prevent field separator spoofing,
+    collapses internal whitespace and newlines to single spaces,
+    and neutralizes closing tags.
     """
     if not text:
         return ""
-    collapsed = re.sub(r"\s+", " ", text).strip()
+    no_pipes = text.replace("|", "/")
+    collapsed = re.sub(r"\s+", " ", no_pipes).strip()
     return neutralize_tags(collapsed)
 
 
