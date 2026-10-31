@@ -10,6 +10,7 @@ from app.schemas.day_one import VALID_TOPIC_KEYS
 from app.schemas.transcript_analysis import (
     TranscriptAnalysisRequest,
     TranscriptAnalysisResponse,
+    TranscriptAnalysisDiagnostics,
     ExtractedItemOutput,
     FollowUpQuestionOutput,
     RawLLMExtractedItem,
@@ -32,6 +33,16 @@ FOLLOW_UP_SYSTEM_PROMPT_PATH = PROMPTS_DIR / "transcript_follow_up.md"
 VALID_TYPES = {"answer", "action_item", "decision", "requirement"}
 VALID_CONFIDENCES = {"low", "medium", "high"}
 CONFIDENCE_SCORE = {"high": 3, "medium": 2, "low": 1}
+ALLOWED_OPEN_STATUSES = {"pending", "asked"}
+
+RELATIVE_DATE_PATTERN = re.compile(
+    r"\b(tomorrow|tomorrow afternoon|tomorrow morning|tomorrow evening|yesterday|next week|next month|this week|next friday|next monday|next tuesday|next wednesday|next thursday|in \d+ days?)\b",
+    re.IGNORECASE,
+)
+ACTION_CHASE_PATTERN = re.compile(
+    r"(contingency.*(if|plan)|what if.*(miss|delay|fail|cannot send|does not send|fails)|if.*(miss|delay|late))",
+    re.IGNORECASE,
+)
 
 
 class TranscriptAnalysisService:
@@ -81,19 +92,20 @@ class TranscriptAnalysisService:
     async def _execute_pipeline(
         self, request: TranscriptAnalysisRequest
     ) -> TranscriptAnalysisResponse:
+        start_exec = time.time()
         total_chunks = len(request.chunks)
-        # Open questions for extraction prompt context
-        open_questions = [
-            q for q in request.questions if (q.status or "").strip().lower() != "answered"
-        ]
 
-        # Valid question IDs and participant IDs for cross-checking
-        valid_question_ids = {q.id for q in request.questions}
+        # Allow-list for open questions: only pending and asked
+        open_questions = [
+            q for q in request.questions
+            if (q.status or "").strip().lower() in ALLOWED_OPEN_STATUSES
+        ]
+        allowed_answer_question_ids = {q.id for q in open_questions}
         valid_participant_ids = {p.id for p in request.participants}
 
         semaphore = asyncio.Semaphore(3)
 
-        async def process_chunk_with_sem(chunk_idx: int, chunk_text: str) -> List[Dict[str, Any]]:
+        async def process_chunk_with_sem(chunk_idx: int, chunk_text: str) -> Dict[str, Any]:
             async with semaphore:
                 return await self._extract_chunk_with_retry(
                     chunk_index=chunk_idx + 1,
@@ -101,7 +113,7 @@ class TranscriptAnalysisService:
                     chunk_text=chunk_text,
                     open_questions=open_questions,
                     participants=request.participants,
-                    valid_question_ids=valid_question_ids,
+                    allowed_answer_question_ids=allowed_answer_question_ids,
                     valid_participant_ids=valid_participant_ids,
                 )
 
@@ -113,32 +125,68 @@ class TranscriptAnalysisService:
         # Concurrently execute all chunk extraction tasks
         chunk_results = await asyncio.gather(*tasks)
 
-        # Merge extracted items across all chunks
+        # Aggregate raw items and drop counts across chunks
         all_raw_items: List[Dict[str, Any]] = []
-        for items in chunk_results:
-            all_raw_items.extend(items)
+        item_drop_counts: Dict[str, int] = {}
+        total_items_extracted = 0
+
+        for res in chunk_results:
+            total_items_extracted += res["rawCount"]
+            all_raw_items.extend(res["items"])
+            for reason, count in res["dropCounts"].items():
+                item_drop_counts[reason] = item_drop_counts.get(reason, 0) + count
 
         merged_items = self._merge_items(
             raw_items=all_raw_items,
             meeting_date=request.meetingDate,
+            drop_counts=item_drop_counts,
         )
 
+        # Derive answered question IDs strictly from items extracted in this call
+        answered_question_ids = {
+            it.questionId for it in merged_items
+            if it.type == "answer" and it.questionId
+        }
+
         # Generate follow-up questions across the unified result set
-        follow_ups = await self._generate_follow_ups_with_retry(
+        follow_ups_res = await self._generate_follow_ups_with_retry(
             brief=request.brief,
             questions=request.questions,
             items=merged_items,
-            valid_question_ids=valid_question_ids,
+            answered_question_ids=answered_question_ids,
+        )
+
+        follow_ups = follow_ups_res["followUps"]
+        total_fu_generated = follow_ups_res["rawCount"]
+        fu_drop_counts = follow_ups_res["dropCounts"]
+
+        total_items_dropped = total_items_extracted - len(merged_items)
+        total_fu_dropped = total_fu_generated - len(follow_ups)
+        exec_duration_ms = int((time.time() - start_exec) * 1000)
+
+        diagnostics = TranscriptAnalysisDiagnostics(
+            chunkCount=total_chunks,
+            totalItemsExtracted=total_items_extracted,
+            totalItemsKept=len(merged_items),
+            totalItemsDropped=total_items_dropped,
+            droppedByReason=item_drop_counts,
+            followUpsGenerated=total_fu_generated,
+            followUpsKept=len(follow_ups),
+            followUpsDropped=total_fu_dropped,
+            followUpDroppedByReason=fu_drop_counts,
+            executionTimeMs=exec_duration_ms,
         )
 
         logger.info(
             f"Transcript analysis completed for {request.transcriptId}: "
-            f"{len(merged_items)} items extracted, {len(follow_ups)} follow-ups generated"
+            f"{len(merged_items)} items extracted, {len(follow_ups)} follow-ups generated, "
+            f"{total_items_dropped} items dropped, {total_fu_dropped} follow-ups dropped ({exec_duration_ms}ms)"
         )
 
         return TranscriptAnalysisResponse(
             items=merged_items,
             followUps=follow_ups,
+            diagnostics=diagnostics,
         )
 
     async def _extract_chunk_with_retry(
@@ -148,9 +196,9 @@ class TranscriptAnalysisService:
         chunk_text: str,
         open_questions: list,
         participants: list,
-        valid_question_ids: Set[str],
+        allowed_answer_question_ids: Set[str],
         valid_participant_ids: Set[str],
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         # Extract bracketed line numbers present in this chunk
         chunk_line_numbers = {
             int(m.group(1)) for m in re.finditer(r"\[(\d+)\]", chunk_text)
@@ -173,7 +221,7 @@ class TranscriptAnalysisService:
             ("human", user_content),
         ]
 
-        last_error = None
+        last_error_cls = None
         for attempt in (1, 2):
             try:
                 logger.debug(f"Calling extraction for chunk {chunk_index}/{chunk_total} (attempt {attempt})")
@@ -183,44 +231,71 @@ class TranscriptAnalysisService:
                 logger.debug(
                     f"Chunk {chunk_index}/{chunk_total} returned {len(result.items)} raw candidate items"
                 )
-                return self._filter_chunk_items(
+                drop_counts: Dict[str, int] = {}
+                valid_items = self._filter_chunk_items(
                     raw_items=result.items,
                     chunk_line_numbers=chunk_line_numbers,
-                    valid_question_ids=valid_question_ids,
+                    allowed_answer_question_ids=allowed_answer_question_ids,
                     valid_participant_ids=valid_participant_ids,
+                    drop_counts=drop_counts,
                 )
+                return {
+                    "items": valid_items,
+                    "rawCount": len(result.items),
+                    "dropCounts": drop_counts,
+                }
             except Exception as exc:
-                last_error = exc
+                last_error_cls = type(exc).__name__
                 logger.warning(
-                    f"Chunk {chunk_index}/{chunk_total} extraction attempt {attempt} failed: {exc}"
+                    f"Chunk {chunk_index}/{chunk_total} extraction attempt {attempt} failed with {last_error_cls}"
                 )
                 if attempt == 1:
                     await asyncio.sleep(1.0)
 
         logger.critical(
-            f"Chunk {chunk_index}/{chunk_total} extraction failed after 2 attempts. Aborting pipeline: {last_error}"
+            f"Chunk {chunk_index}/{chunk_total} extraction failed after 2 attempts with {last_error_cls}"
         )
-        raise RuntimeError(f"Chunk {chunk_index} extraction failed: {str(last_error)}")
+        raise RuntimeError(f"Chunk {chunk_index} extraction failed ({last_error_cls})")
 
     def _filter_chunk_items(
         self,
         raw_items: List[RawLLMExtractedItem],
         chunk_line_numbers: Set[int],
-        valid_question_ids: Set[str],
-        valid_participant_ids: Set[str],
+        allowed_answer_question_ids: Optional[Set[str]] = None,
+        valid_participant_ids: Optional[Set[str]] = None,
+        drop_counts: Optional[Dict[str, int]] = None,
+        valid_question_ids: Optional[Set[str]] = None,
     ) -> List[Dict[str, Any]]:
         valid_items: List[Dict[str, Any]] = []
+        if drop_counts is None:
+            drop_counts = {}
+        allowed_qids = (
+            allowed_answer_question_ids
+            if allowed_answer_question_ids is not None
+            else (valid_question_ids or set())
+        )
+        valid_pids = valid_participant_ids or set()
+        seen_chunk_keys: Set[tuple] = set()
 
         for item in raw_items:
             # 1. Type validation
             item_type = (item.type or "").strip().lower()
             if item_type not in VALID_TYPES:
+                drop_counts["invalid_type"] = drop_counts.get("invalid_type", 0) + 1
                 continue
 
             # 2. Text validation
             text = (item.text or "").strip()
             if not text:
+                drop_counts["empty_text"] = drop_counts.get("empty_text", 0) + 1
                 continue
+
+            # In-chunk deduplication
+            chunk_key = (item_type, re.sub(r"\s+", " ", text).strip().lower())
+            if chunk_key in seen_chunk_keys:
+                drop_counts["duplicate_in_chunk"] = drop_counts.get("duplicate_in_chunk", 0) + 1
+                continue
+            seen_chunk_keys.add(chunk_key)
 
             # 3. Confidence normalization
             confidence = (item.confidence or "").strip().lower()
@@ -231,7 +306,7 @@ class TranscriptAnalysisService:
             clean_citations = coerce_evidence_line_numbers(item.evidenceLineNumbers)
             grounded_citations = [ln for ln in clean_citations if ln in chunk_line_numbers]
             if not grounded_citations:
-                # Must cite at least one line actually present in this chunk
+                drop_counts["ungrounded_evidence"] = drop_counts.get("ungrounded_evidence", 0) + 1
                 continue
 
             # 5. Type-specific constraint checks
@@ -242,14 +317,15 @@ class TranscriptAnalysisService:
 
             if item_type == "answer":
                 qid = (item.questionId or "").strip()
-                if not qid or qid not in valid_question_ids:
-                    # Answer must cite an existing question from input
+                if not qid or qid not in allowed_qids:
+                    # Answer must cite an allowed open question
+                    drop_counts["invalid_answer_question"] = drop_counts.get("invalid_answer_question", 0) + 1
                     continue
                 question_id = qid
 
             elif item_type == "action_item":
                 pid = (item.ownerParticipantId or "").strip()
-                if pid and pid in valid_participant_ids:
+                if pid and pid in valid_pids:
                     owner_participant_id = pid
                 if item.ownerName and item.ownerName.strip():
                     owner_name = item.ownerName.strip()
@@ -273,12 +349,15 @@ class TranscriptAnalysisService:
         self,
         raw_items: List[Dict[str, Any]],
         meeting_date: Optional[Any],
+        drop_counts: Optional[Dict[str, int]] = None,
     ) -> List[ExtractedItemOutput]:
         """
         Merges items with matching type and normalized text across chunks,
         unioning evidence line numbers, taking the highest confidence,
         and deterministically resolving action item due dates.
         """
+        if drop_counts is None:
+            drop_counts = {}
         merged_map: Dict[tuple, Dict[str, Any]] = {}
 
         for it in raw_items:
@@ -297,6 +376,7 @@ class TranscriptAnalysisService:
                     "duePhrase": it.get("duePhrase"),
                 }
             else:
+                drop_counts["duplicate_across_chunks"] = drop_counts.get("duplicate_across_chunks", 0) + 1
                 existing = merged_map[key]
                 # Union evidence line numbers
                 existing["evidenceLineNumbers"].update(it["evidenceLineNumbers"])
@@ -347,8 +427,8 @@ class TranscriptAnalysisService:
         brief: Optional[str],
         questions: list,
         items: List[ExtractedItemOutput],
-        valid_question_ids: Set[str],
-    ) -> List[FollowUpQuestionOutput]:
+        answered_question_ids: Set[str],
+    ) -> Dict[str, Any]:
         user_content = render_follow_up_user_message(
             brief=brief,
             questions=questions,
@@ -364,7 +444,7 @@ class TranscriptAnalysisService:
             ("human", user_content),
         ]
 
-        last_error = None
+        last_error_cls = None
         for attempt in (1, 2):
             try:
                 logger.debug(f"Calling follow-up question discovery (attempt {attempt})")
@@ -372,45 +452,90 @@ class TranscriptAnalysisService:
                     structured_llm.invoke, messages
                 )
                 logger.debug(f"LLM returned {len(result.followUps)} raw candidate follow-ups")
-                return self._filter_follow_ups(
+                drop_counts: Dict[str, int] = {}
+                clean_follow_ups = self._filter_follow_ups(
                     raw_follow_ups=result.followUps,
-                    valid_question_ids=valid_question_ids,
+                    answered_question_ids=answered_question_ids,
+                    existing_questions=questions,
+                    drop_counts=drop_counts,
                 )
+                return {
+                    "followUps": clean_follow_ups,
+                    "rawCount": len(result.followUps),
+                    "dropCounts": drop_counts,
+                }
             except Exception as exc:
-                last_error = exc
-                logger.warning(f"Follow-up discovery attempt {attempt} failed: {exc}")
+                last_error_cls = type(exc).__name__
+                logger.warning(f"Follow-up discovery attempt {attempt} failed with {last_error_cls}")
                 if attempt == 1:
                     await asyncio.sleep(1.0)
 
-        logger.critical(f"Follow-up discovery failed after 2 attempts: {last_error}")
-        raise RuntimeError(f"Follow-up question generation failed: {str(last_error)}")
+        logger.critical(f"Follow-up discovery failed after 2 attempts with {last_error_cls}")
+        raise RuntimeError(f"Follow-up question generation failed ({last_error_cls})")
 
     def _filter_follow_ups(
         self,
         raw_follow_ups: List[RawLLMFollowUpQuestion],
-        valid_question_ids: Set[str],
+        answered_question_ids: Optional[Set[str]] = None,
+        existing_questions: Optional[list] = None,
+        drop_counts: Optional[Dict[str, int]] = None,
+        valid_question_ids: Optional[Set[str]] = None,
     ) -> List[FollowUpQuestionOutput]:
         clean_follow_ups: List[FollowUpQuestionOutput] = []
+        if drop_counts is None:
+            drop_counts = {}
+
+        answered_ids = (
+            answered_question_ids
+            if answered_question_ids is not None
+            else (valid_question_ids or set())
+        )
+
+        existing_question_texts = set()
+        if existing_questions:
+            for q in existing_questions:
+                q_text = getattr(q, "text", None) or (q.get("text") if isinstance(q, dict) else "")
+                if q_text:
+                    existing_question_texts.add(re.sub(r"\s+", " ", q_text).strip().lower())
 
         for fu in raw_follow_ups:
             topic = (fu.topic or "").strip().lower()
             if topic not in VALID_TOPIC_KEYS:
+                drop_counts["invalid_topic"] = drop_counts.get("invalid_topic", 0) + 1
                 continue
 
             text = (fu.text or "").strip()
             if not text:
+                drop_counts["empty_text"] = drop_counts.get("empty_text", 0) + 1
                 continue
 
             reason = (fu.reason or "").strip()
             if not reason:
+                drop_counts["empty_reason"] = drop_counts.get("empty_reason", 0) + 1
                 continue
 
+            # Rule: Follow-ups must never duplicate existing open questions
+            norm_fu_text = re.sub(r"\s+", " ", text).strip().lower()
+            if norm_fu_text in existing_question_texts:
+                drop_counts["duplicate_existing_question"] = (
+                    drop_counts.get("duplicate_existing_question", 0) + 1
+                )
+                continue
+
+            # Rule: Follow-ups must never chase action items or use relative dates
+            if RELATIVE_DATE_PATTERN.search(text) or ACTION_CHASE_PATTERN.search(text):
+                drop_counts["relative_date_or_action_chase"] = (
+                    drop_counts.get("relative_date_or_action_chase", 0) + 1
+                )
+                continue
+
+            # Rule: parentQuestionId MUST be a question answered in this call
             parent_id = (fu.parentQuestionId or "").strip()
-            if parent_id and parent_id not in valid_question_ids:
-                # Parent question does not exist in request; clear it rather than dropping
-                parent_id = None
-            elif not parent_id:
-                parent_id = None
+            if not parent_id or parent_id not in answered_ids:
+                drop_counts["unanswered_parent_followup"] = (
+                    drop_counts.get("unanswered_parent_followup", 0) + 1
+                )
+                continue
 
             clean_follow_ups.append(
                 FollowUpQuestionOutput(
@@ -422,10 +547,13 @@ class TranscriptAnalysisService:
             )
 
             if len(clean_follow_ups) == 5:
+                # Any remaining candidate follow-ups are dropped by the 5-item cap
+                remaining = len(raw_follow_ups) - (len(clean_follow_ups) + sum(drop_counts.values()))
+                if remaining > 0:
+                    drop_counts["max_cap_reached"] = remaining
                 break
 
         return clean_follow_ups
 
 
 transcript_analysis_service = TranscriptAnalysisService()
-

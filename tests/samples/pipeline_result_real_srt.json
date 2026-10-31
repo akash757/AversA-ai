@@ -1,0 +1,163 @@
+{
+  "items": [
+    {
+      "type": "answer",
+      "text": "Reducing deadhead miles is our highest company priority right now due to a twenty percent diesel price spike this quarter.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        1
+      ],
+      "questionId": "que_why_now",
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "answer",
+      "text": "Twelve central dispatchers and eighty-five full-time long-haul drivers across Midwest depots will use the product.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        3,
+        4
+      ],
+      "questionId": "que_fleet_size",
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "answer",
+      "text": "The routing engine must connect to Samsara hardware for telemetry and McLeod LoadMaster for carrier billing.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        5,
+        6
+      ],
+      "questionId": "que_existing_tms",
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "requirement",
+      "text": "Pull GPS pings from Samsara REST API every sixty seconds.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        6
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "decision",
+      "text": "Drivers will not have an offline mode in version one.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        7
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "requirement",
+      "text": "Cellular connectivity is mandatory for all tablets.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        7
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "answer",
+      "text": "The new dispatch optimizer must go live by a hard cutoff of January 15 before annual carrier contract renewals to avoid penalties with regional shippers.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        8,
+        9
+      ],
+      "questionId": "que_launch_target",
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "action_item",
+      "text": "Email the Samsara API keys and sample webhook payloads.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        11
+      ],
+      "questionId": null,
+      "ownerParticipantId": "par_dave",
+      "ownerName": "Dave",
+      "duePhrase": "by tomorrow",
+      "resolvedDueDate": "2026-11-03"
+    },
+    {
+      "type": "action_item",
+      "text": "Export the McLeod LoadMaster data schema and past route logs.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        12
+      ],
+      "questionId": null,
+      "ownerParticipantId": "par_marcus",
+      "ownerName": "Marcus",
+      "duePhrase": "by Wednesday",
+      "resolvedDueDate": "2026-11-04"
+    },
+    {
+      "type": "action_item",
+      "text": "Draft the data ingestion pipeline specification and send it over.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        13
+      ],
+      "questionId": null,
+      "ownerParticipantId": "par_elena",
+      "ownerName": "Elena",
+      "duePhrase": "by Thursday",
+      "resolvedDueDate": "2026-11-05"
+    }
+  ],
+  "followUps": [
+    {
+      "topic": "existing_systems",
+      "text": "How should the routing engine handle data sync failures when cellular connectivity drops while pulling GPS pings from the Samsara REST API?",
+      "reason": "The call confirmed that cellular connectivity is mandatory and there is no offline mode for version one, making the behavior during network drops a critical architectural ambiguity.",
+      "parentQuestionId": "que_existing_tms"
+    },
+    {
+      "topic": "constraints",
+      "text": "What specific operational penalties occur with regional shippers if the dispatch optimizer fails to go live by the January 15 cutoff?",
+      "reason": "The meeting established January 15 as a hard deadline tied to annual carrier contract renewals, but the exact impact of missing this date requires clarification.",
+      "parentQuestionId": "que_launch_target"
+    }
+  ],
+  "diagnostics": {
+    "chunkCount": 2,
+    "totalItemsExtracted": 10,
+    "totalItemsKept": 10,
+    "totalItemsDropped": 0,
+    "droppedByReason": {},
+    "followUpsGenerated": 2,
+    "followUpsKept": 2,
+    "followUpsDropped": 0,
+    "followUpDroppedByReason": {},
+    "executionTimeMs": 5790
+  }
+}

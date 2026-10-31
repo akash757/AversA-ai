@@ -1,3 +1,5 @@
+import asyncio
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.middlewares.auth import verify_service_token
 from app.schemas.transcript_analysis import (
@@ -32,26 +34,24 @@ async def analyze_transcript(request: TranscriptAnalysisRequest):
             f"extracted {len(response.items)} items, generated {len(response.followUps)} follow-ups"
         )
         return response
-    except TimeoutError as exc:
-        logger.warning(f"Analysis timed out for transcript {request.transcriptId}: {str(exc)}")
+    except (asyncio.TimeoutError, TimeoutError, httpx.TimeoutException):
+        logger.warning(
+            "Analysis timed out for transcript %s",
+            request.transcriptId,
+        )
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail=f"Analysis timed out: {str(exc)}",
+            detail="TRANSCRIPT_ANALYSIS_TIMEOUT: Analysis pipeline timed out.",
         )
     except Exception as exc:
-        err_msg = str(exc)
-        if "timed out" in err_msg.lower() or "timeout" in err_msg.lower():
-            logger.warning(f"Analysis timed out for transcript {request.transcriptId}: {err_msg}")
-            raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail=f"Analysis timed out: {err_msg}",
-            )
+        exc_class = type(exc).__name__
         logger.critical(
-            f"Transcript analysis failed for transcript {request.transcriptId}: {err_msg}",
-            exc_info=True,
+            "Transcript analysis failed for transcript %s with %s",
+            request.transcriptId,
+            exc_class,
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Transcript analysis pipeline failed: {err_msg}",
+            detail="TRANSCRIPT_ANALYSIS_FAILED: An internal error occurred during transcript analysis.",
         )
 

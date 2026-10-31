@@ -1,0 +1,55 @@
+{
+  "projectId": "proj_cgm_health_01",
+  "transcriptId": "tr_cgm_teams_call_01",
+  "meetingDate": "2026-11-02T10:00:00Z",
+  "brief": "Mobile and desktop app where users view CGM glucose readings and log meals. Frequent meals can be saved for quick re-logging. The client wants a first demo within two months.",
+  "participants": [
+    { "id": "par_priyanka", "name": "Priyanka", "party": "internal" },
+    { "id": "par_ouali", "name": "Ouali", "party": "client" },
+    { "id": "par_sarah", "name": "Sarah", "party": "client" },
+    { "id": "par_alex", "name": "Alex", "party": "internal" }
+  ],
+  "questions": [
+    {
+      "id": "que_cgm_devices",
+      "topic": "existing_systems",
+      "text": "Which glucose monitoring devices does the app need to work with?",
+      "status": "pending"
+    },
+    {
+      "id": "que_regulations",
+      "topic": "constraints",
+      "text": "Are there legal, security, or compliance requirements?",
+      "status": "pending"
+    },
+    {
+      "id": "que_demo_deadline",
+      "topic": "constraints",
+      "text": "Is the deadline fixed, and what happens if it slips?",
+      "status": "pending"
+    },
+    {
+      "id": "que_success_metrics",
+      "topic": "goals",
+      "text": "What does success look like in 3 to 6 months?",
+      "status": "pending"
+    },
+    {
+      "id": "que_user_types",
+      "topic": "users",
+      "text": "Who will use this product, and roughly how many people?",
+      "status": "pending"
+    },
+    {
+      "id": "que_priorities",
+      "topic": "problem",
+      "text": "Why is this a priority right now?",
+      "status": "pending"
+    }
+  ],
+  "chunks": [
+    "[1] Priyanka (internal): Good morning everyone. Let's dive right into our discovery session for the CGM and meal tracking app.\n[2] Ouali (client): Good morning Priyanka, Alex. Glad to connect.\n[3] Sarah (client): Morning all.\n[4] Priyanka (internal): Let's start with the sensors. Which glucose monitoring hardware must we integrate with initially?\n[5] Ouali (client): Well, um, our clinical trial patients primarily use Abbott FreeStyle Libre 3. We definitely need Abbott LibreLinkUp API integration first. Later on we might look at Dexcom G7, but Phase 1 is strictly Abbott Libre 3.\n[6] Alex (internal): Got it, Abbott Libre 3 is our primary device target for the initial release.\n[7] Priyanka (internal): And what about compliance and privacy rules?\n[8] Sarah (client): That is non-negotiable. Because we handle continuous blood glucose records, the platform must be fully HIPAA compliant from day one, with all patient health data encrypted at rest using AES-256.\n[9] Alex (internal): Completely agreed. We will enforce end-to-end encryption and HIPAA audit logging across all microservices.\n[10] Ouali (client): As for the deadline, our board demonstration is scheduled for December 18. This demo deadline is completely non-negotiable because our Series A funding milestone hinges on it.",
+
+    "[11] Priyanka (internal): Regarding the pilot rollout, roughly how many people will be testing this first version?\n[12] Ouali (client): We are estimating maybe around 500 beta diabetic patients across three endocrinology clinics, though depending on clinic onboarding it might be anywhere from 300 to 700.\n[13] Alex (internal): Okay, roughly 300 to 700 trial participants.\n[14] Sarah (client): We also made a firm decision yesterday regarding platforms: we are launching exclusively on iOS first. Android support is explicitly postponed to Phase 2.\n[15] Alex (internal): Makes sense to focus on iOS for the pilot.\n[16] Priyanka (internal): And for meal logging, does MVP include food barcode scanning?\n[17] Ouali (client): No, barcode scanning is out of scope for the demo. Just manual meal descriptions, photos, and quick-save favorites.\n[18] Ouali (client): I will send over the Abbott LibreLinkUp API sandbox credentials and developer documentation by tomorrow afternoon.\n[19] Sarah (client): And I will email the HIPAA compliance requirements checklist and patient consent form templates by Thursday.\n[20] Alex (internal): Perfect. I will review the Abbott specs and share our initial system architecture draft by this Friday.\n[21] Priyanka (internal): Excellent. We will reconvene next Monday."
+  ]
+}

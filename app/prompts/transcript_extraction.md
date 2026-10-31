@@ -83,6 +83,24 @@ par_id_2 | Sarah Smith | internal
 - If the transcript has no speaker identities or party tags (e.g. unformatted audio paste), the client-side distinction cannot be verified.
 - In this case, extract with confidence `low` and capture only clearly stated commitments, decisions, or core system facts.
 
+### 6. Atomic Items (One Statement Per Item)
+- **One Statement Per Item**: Each extracted item must represent exactly one distinct, atomic statement.
+- **Never Pack Compound Statements**: Never combine multiple requirements, constraints, or decisions into a single compound item using "and", commas, or multiple clauses.
+  - *Wrong*: `"Support English only at launch and net-30 bank transfer only"`
+  - *Right*: Two separate items:
+    1. `decision` or `requirement`: `"Support English only at launch."`
+    2. `decision` or `requirement`: `"Support net-30 bank transfer only."`
+  - *Wrong*: `"mTLS, Okta SSO, and mandatory MFA required"`
+  - *Right*: Three separate atomic items: one for mTLS, one for Okta SSO, one for mandatory MFA.
+
+### 7. No Restating Answers as Decisions or Requirements
+- If a client statement directly answers an open discovery question (e.g. launch date is November 15, or 250 shop owners place orders), record it strictly as an `answer` (citing `questionId`).
+- **Do NOT create a duplicate `decision` or `requirement`** that merely restates the exact same fact or answer, unless the conversation establishes a separate, distinct architectural decision or technical constraint beyond the answer text.
+
+### 8. No Leading or Invented Technical Assumptions
+- Do NOT invent, assume, or lead with unstated technical terminology or systems (such as "ERP", specific frameworks, unmentioned login/account-switching flows, or database engines) unless explicitly and verbatim stated by the participants in the transcript.
+- Capture strictly what was spoken, grounded in the dialogue.
+
 ---
 
 ## NOISE, MERGING & CONFIDENCE
@@ -90,10 +108,11 @@ par_id_2 | Sarah Smith | internal
 2. **Small Talk**: Ignore greetings, pleasantries, connection checks, and filler banter.
 3. **Empty Output**: If the chunk contains only small talk, status recaps, or no qualifying items, return an empty list: `{"items": []}`. Never fabricate items.
 4. **Chunk Limit**: Output at most **30** highest-quality extracted items per chunk.
-5. **Confidence Rating**:
-   - `high`: Unambiguous, clear, and explicitly affirmed by participants.
-   - `medium`: Stated clearly, but with minor qualifiers or brief discussion.
-   - `low`: Implied, unmapped speakers, or phrased tentatively.
+5. **Confidence Calibration**:
+   - Do NOT mark every item as `high`. Real client dialogue contains qualifications, hedged remarks, and ambiguities.
+   - `high`: Explicit, direct, unambiguous statements backed by clear consensus or explicit client confirmation.
+   - `medium`: Tentative agreements, hedged speech (*"I think so"*, *"probably"*, *"we might"*, *"as far as I know"*), or statements that were not explicitly confirmed by all key parties.
+   - `low`: Implied points, unmapped or plain speakers, noisy transcript dialogue, or phrased tentatively.
 
 ---
 

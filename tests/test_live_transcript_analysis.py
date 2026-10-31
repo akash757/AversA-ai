@@ -1,3 +1,4 @@
+import os
 import pytest
 from datetime import datetime, timezone
 
@@ -10,7 +11,10 @@ from app.schemas.transcript_analysis import (
 )
 
 
-@pytest.mark.skipif(not settings.GOOGLE_API_KEY, reason="Requires GOOGLE_API_KEY")
+@pytest.mark.skipif(
+    not (os.environ.get("RUN_LIVE_TESTS") in ("1", "true", "True") and settings.GOOGLE_API_KEY),
+    reason="Live Gemini tests are opt-in. Set RUN_LIVE_TESTS=1 to run.",
+)
 @pytest.mark.anyio
 async def test_live_gemini_transcript_analysis():
     """

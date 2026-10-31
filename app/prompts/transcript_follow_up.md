@@ -61,13 +61,29 @@ Every follow-up question MUST be assigned one of the 8 canonical topic keys:
 ### B. Grounding & Anti-Generic Rule
 - **Never Ask Generic Filler Questions**: Do NOT ask generic questions about security, disaster recovery, GDPR, or scalability unless the meeting dialogue explicitly raised or hinted at them.
 - Ask ONLY about topics that the meeting discussion indicated matter to the client's business or product scope.
-- **Do Not Repeat**: Never re-ask questions that are already answered or already present in `<existing_questions>`.
+- **Never Re-Ask Open Questions**: A follow-up question must ONLY clarify, disambiguate, or probe deeper into a statement, decision, or answer that was given during this call.
+  - NEVER re-ask, duplicate, or rephrase an existing unanswered or pending question from `<existing_questions>`.
+  - Asking an open question that was simply not discussed during the call is NOT a follow-up—it duplicates the PM's existing list.
 
-### C. Thin Call Handling
+### C. Never Chase Action Items or Team Risks
+- Follow-up questions are strictly for discovering business requirements, user workflows, domain rules, and technical product scope.
+- **NEVER chase action items, task deadlines, or execution commitments** (e.g. do NOT ask *"What is the contingency plan if the client misses tomorrow's delivery?"* or *"How will the team mitigate the risk if the API docs are late?"*).
+
+### D. Absolute Dates Only (No Relative Phrasing)
+- Always formulate questions using absolute calendar dates or phase milestones (e.g., *"for the November 15 launch"*, *"during Phase 1"*).
+- **NEVER use relative temporal expressions** such as *"tomorrow"*, *"tomorrow afternoon"*, *"next Friday"*, or *"yesterday"*, as relative dates become misleading and incorrect when read later.
+
+### E. No Leading Assumptions or Technical Jargon
+- Do not lead the client with unstated technical acronyms (such as "ERP"), specific unmentioned authentication flows, or architectural assumptions that the call did not actually make.
+
+### F. Thin Call Handling
 - If the call was brief, had minimal technical substance, or left no ambiguous loose ends, return fewer follow-up questions or an **empty list (`[]`)**.
 - **Never fabricate questions** just to reach 5. Five is a strict maximum cap, not a quota.
 
-### D. Grounding, Reason & Parent ID
+### G. Grounding, Reason & Parent ID
 - Every follow-up question must include a concise `reason` explicitly explaining what gap, half-answer, or ambiguity from the meeting makes this question necessary.
-- **Parent ID Rule**: If this question drills into or clarifies an existing question, set `parentQuestionId` strictly to that question's ID from `<existing_questions>`. **NEVER invent a parentQuestionId.** If it does not directly clarify an existing question, set `parentQuestionId` to null.
+- **Parent ID Rule (Must be Answered in This Call)**:
+  - If this question clarifies or drills into an existing question, `parentQuestionId` MUST be the ID of a question that received an active answer in `<extracted_items>` (`answers: que_...`).
+  - **NEVER set `parentQuestionId` to an unanswered, pending, or unaddressed question.**
+  - If the follow-up explores a new gap or ambiguity not directly linked to an answered question, set `parentQuestionId` to null.
 - **Ordering**: The output list must be strictly ordered from most important to least important (rank 1 first).

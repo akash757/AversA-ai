@@ -1,0 +1,211 @@
+{
+  "items": [
+    {
+      "type": "answer",
+      "text": "The app must integrate with Abbott FreeStyle Libre 3 via Abbott LibreLinkUp API for Phase 1.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        4,
+        5
+      ],
+      "questionId": "que_cgm_devices",
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "requirement",
+      "text": "The platform must be fully HIPAA compliant from day one.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        8
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "requirement",
+      "text": "All patient health data must be encrypted at rest using AES-256.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        8
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "answer",
+      "text": "The platform must be fully HIPAA compliant from day one, with patient health data encrypted at rest using AES-256.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        7,
+        8
+      ],
+      "questionId": "que_regulations",
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "answer",
+      "text": "The board demonstration deadline is December 18 and is completely non-negotiable because the Series A funding milestone hinges on it.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        10
+      ],
+      "questionId": "que_demo_deadline",
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "answer",
+      "text": "Roughly 300 to 700 trial participants will test the first version.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        11,
+        12,
+        13
+      ],
+      "questionId": "que_user_types",
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "decision",
+      "text": "Launching exclusively on iOS first.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        14
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "decision",
+      "text": "Android support is postponed to Phase 2.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        14
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "requirement",
+      "text": "Barcode scanning is out of scope for the demo.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        16,
+        17
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "requirement",
+      "text": "Support manual meal descriptions, photos, and quick-save favorites.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        16,
+        17
+      ],
+      "questionId": null,
+      "ownerParticipantId": null,
+      "ownerName": null,
+      "duePhrase": null,
+      "resolvedDueDate": null
+    },
+    {
+      "type": "action_item",
+      "text": "Send over the Abbott LibreLinkUp API sandbox credentials and developer documentation.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        18
+      ],
+      "questionId": null,
+      "ownerParticipantId": "par_ouali",
+      "ownerName": "Ouali",
+      "duePhrase": "by tomorrow afternoon",
+      "resolvedDueDate": "2026-11-03"
+    },
+    {
+      "type": "action_item",
+      "text": "Email the HIPAA compliance requirements checklist and patient consent form templates.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        19
+      ],
+      "questionId": null,
+      "ownerParticipantId": "par_sarah",
+      "ownerName": "Sarah",
+      "duePhrase": "by Thursday",
+      "resolvedDueDate": "2026-11-05"
+    },
+    {
+      "type": "action_item",
+      "text": "Review the Abbott specs and share our initial system architecture draft.",
+      "confidence": "high",
+      "evidenceLineNumbers": [
+        20
+      ],
+      "questionId": null,
+      "ownerParticipantId": "par_alex",
+      "ownerName": "Alex",
+      "duePhrase": "by this Friday",
+      "resolvedDueDate": "2026-11-06"
+    }
+  ],
+  "followUps": [
+    {
+      "topic": "existing_systems",
+      "text": "What data points and read frequencies are available through the Abbott LibreLinkUp API during Phase 1?",
+      "reason": "The client specified integration with Abbott FreeStyle Libre 3 via the LibreLinkUp API, but the specific data extraction limits and polling frequencies remain unclarified.",
+      "parentQuestionId": "que_cgm_devices"
+    },
+    {
+      "topic": "constraints",
+      "text": "What specific patient consent flows and audit log requirements must be implemented to satisfy HIPAA compliance for the December 18 demonstration?",
+      "reason": "The client confirmed HIPAA compliance and AES-256 encryption are mandatory for day one, but the specific operational requirements for audit logs and patient consent were not detailed.",
+      "parentQuestionId": "que_regulations"
+    },
+    {
+      "topic": "users",
+      "text": "How will the 300 to 700 trial participants onboard and authenticate into the iOS application for the December 18 demonstration?",
+      "reason": "The participant volume and iOS exclusivity were established, but the user provisioning and onboarding mechanism for the trial group were not discussed.",
+      "parentQuestionId": "que_user_types"
+    }
+  ],
+  "diagnostics": {
+    "chunkCount": 2,
+    "totalItemsExtracted": 13,
+    "totalItemsKept": 13,
+    "totalItemsDropped": 0,
+    "droppedByReason": {},
+    "followUpsGenerated": 3,
+    "followUpsKept": 3,
+    "followUpsDropped": 0,
+    "followUpDroppedByReason": {},
+    "executionTimeMs": 5663
+  }
+}

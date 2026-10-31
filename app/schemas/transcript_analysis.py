@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal, Any
+from typing import List, Optional, Literal, Any, Dict
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator, model_validator
 from app.schemas.day_one import KnownTopicKey
@@ -309,6 +309,20 @@ class FollowUpQuestionOutput(BaseModel):
         return v
 
 
+class TranscriptAnalysisDiagnostics(BaseModel):
+    chunkCount: int = Field(0, description="Total chunks processed")
+    totalItemsExtracted: int = Field(0, description="Total candidate items proposed by LLM across all chunks")
+    totalItemsKept: int = Field(0, description="Total unique items kept after filtering and deduplication")
+    totalItemsDropped: int = Field(0, description="Total candidate items dropped")
+    droppedByReason: Dict[str, int] = Field(default_factory=dict, description="Drop counts grouped by reason")
+    followUpsGenerated: int = Field(0, description="Total follow-up candidates proposed by LLM")
+    followUpsKept: int = Field(0, description="Total follow-up questions kept")
+    followUpsDropped: int = Field(0, description="Total follow-up questions dropped")
+    followUpDroppedByReason: Dict[str, int] = Field(default_factory=dict, description="Follow-up drop counts grouped by reason")
+    executionTimeMs: int = Field(0, description="Total pipeline execution time in milliseconds")
+
+
 class TranscriptAnalysisResponse(BaseModel):
     items: List[ExtractedItemOutput] = Field(default_factory=list, description="Extracted answers, action items, decisions, and requirements")
     followUps: List[FollowUpQuestionOutput] = Field(default_factory=list, max_length=5, description="Up to 5 ranked follow-up questions")
+    diagnostics: Optional[TranscriptAnalysisDiagnostics] = Field(None, description="Detailed diagnostic metrics and drop counters")

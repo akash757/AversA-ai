@@ -1,0 +1,48 @@
+{
+  "projectId": "proj_logistics_fleet_02",
+  "transcriptId": "tr_fleet_dispatch_srt_02",
+  "meetingDate": "2026-11-02T14:30:00Z",
+  "brief": "Real-time dispatch and fleet routing platform for regional freight carriers to cut fuel usage and track shipments.",
+  "participants": [
+    { "id": "par_dave", "name": "Dave", "party": "client" },
+    { "id": "par_elena", "name": "Elena", "party": "internal" },
+    { "id": "par_marcus", "name": "Marcus", "party": "client" }
+  ],
+  "questions": [
+    {
+      "id": "que_why_now",
+      "topic": "problem",
+      "text": "Why is this a priority right now?",
+      "status": "pending"
+    },
+    {
+      "id": "que_fleet_size",
+      "topic": "users",
+      "text": "Who will use this product, and roughly how many people?",
+      "status": "pending"
+    },
+    {
+      "id": "que_existing_tms",
+      "topic": "existing_systems",
+      "text": "What already exists and what this must connect to, such as payments, email, or other software?",
+      "status": "pending"
+    },
+    {
+      "id": "que_launch_target",
+      "topic": "constraints",
+      "text": "Is the deadline fixed, and what happens if it slips?",
+      "status": "pending"
+    },
+    {
+      "id": "que_success_kpi",
+      "topic": "goals",
+      "text": "What does success look like in 3 to 6 months?",
+      "status": "pending"
+    }
+  ],
+  "chunks": [
+    "[1] Dave (client): Thanks everyone for joining. As you know, diesel prices spiked twenty percent this quarter, so reducing deadhead miles is our highest company priority right now.\n[2] Elena (internal): Makes complete sense Dave.\n[3] Elena (internal): In terms of current fleet scale, who will be dispatching and driving?\n[4] Marcus (client): Right now, uh, we have twelve central dispatchers and eighty-five full-time long-haul drivers across our Midwest depots.\n[5] Elena (internal): What about existing software systems that the routing engine must connect to?\n[6] Dave (client): Our telemetry runs on Samsara hardware, and all carrier billing is in McLeod LoadMaster. We must pull GPS pings from Samsara REST API every sixty seconds.\n[7] Marcus (client): Also, we reached a final decision this morning: drivers will not have an offline mode in version one. Cellular connectivity is mandatory for all tablets.",
+
+    "[8] Elena (internal): When does the new dispatch optimizer need to go live?\n[9] Dave (client): We have a hard cutoff of January 15 before our annual carrier contract renewals. If we miss January 15, we risk penalties with regional shippers.\n[10] Elena (internal): Got it, January 15 is the firm target.\n[11] Dave (client): I will email you the Samsara API keys and sample webhook payloads by tomorrow.\n[12] Marcus (client): And I will export the McLeod LoadMaster data schema and past route logs by Wednesday.\n[13] Elena (internal): Thanks Marcus. I will draft our data ingestion pipeline specification and send it over by Thursday.\n[14] Dave (client): Sounds like a solid plan. Talk soon."
+  ]
+}

@@ -185,45 +185,82 @@ def test_merge_items_deduplication_and_date_resolution(service):
 
 
 def test_filter_follow_ups(service):
-    valid_qids = {"que_1"}
+    answered_qids = {"que_1"}
+    existing_questions = [
+        {"id": "que_open", "text": "What are your 3 to 6 month success metrics?", "topic": "goals"}
+    ]
+    drop_counts = {}
 
     raw_fus = [
-        # Valid follow-up
+        # 1. Valid follow-up with answered parent
         RawLLMFollowUpQuestion(
             topic="features",
             text="What payment gateways should be supported in MVP?",
             reason="Client mentioned Stripe and Paypal but didn't confirm priority.",
             parentQuestionId="que_1",
         ),
-        # Unknown parentQuestionId with valid topic -> parentQuestionId cleared to None
+        # 2. Unknown parentQuestionId -> dropped (must be answered question)
         RawLLMFollowUpQuestion(
             topic="constraints",
             text="Is 2FA required for admins?",
             reason="Security compliance requirements were not detailed.",
             parentQuestionId="que_invented",
         ),
-        # Invalid topic -> dropped
+        # 3. Invalid topic -> dropped
         RawLLMFollowUpQuestion(
             topic="invalid_topic",
             text="What about branding?",
             reason="Unspecified.",
+            parentQuestionId="que_1",
         ),
-        # Empty text -> dropped
+        # 4. Empty text -> dropped
         RawLLMFollowUpQuestion(
             topic="problem",
             text="  ",
             reason="Problem statement empty.",
+            parentQuestionId="que_1",
+        ),
+        # 5. Re-asking an existing question -> dropped
+        RawLLMFollowUpQuestion(
+            topic="goals",
+            text="What are your 3 to 6 month success metrics?",
+            reason="Need clarification on goals.",
+            parentQuestionId="que_1",
+        ),
+        # 6. Relative date in follow-up -> dropped
+        RawLLMFollowUpQuestion(
+            topic="next_steps",
+            text="Can you confirm if tomorrow afternoon works for the wireframe review?",
+            reason="Scheduling clarity.",
+            parentQuestionId="que_1",
+        ),
+        # 7. Action item chase / contingency -> dropped
+        RawLLMFollowUpQuestion(
+            topic="constraints",
+            text="What is your contingency plan if the vendor fails to deliver the export by Friday?",
+            reason="Risk mitigation.",
+            parentQuestionId="que_1",
         ),
     ]
 
-    clean = service._filter_follow_ups(raw_fus, valid_qids)
+    clean = service._filter_follow_ups(
+        raw_follow_ups=raw_fus,
+        answered_question_ids=answered_qids,
+        existing_questions=existing_questions,
+        drop_counts=drop_counts,
+    )
 
-    assert len(clean) == 2
+    assert len(clean) == 1
     assert clean[0].topic == "features"
     assert clean[0].parentQuestionId == "que_1"
+    assert clean[0].text == "What payment gateways should be supported in MVP?"
 
-    assert clean[1].topic == "constraints"
-    assert clean[1].parentQuestionId is None
+    # Check drop counter reasons
+    assert drop_counts.get("unanswered_parent_followup") == 1
+    assert drop_counts.get("invalid_topic") == 1
+    assert drop_counts.get("empty_text") == 1
+    assert drop_counts.get("duplicate_existing_question") == 1
+    assert drop_counts.get("relative_date_or_action_chase") == 2
 
 
 client = TestClient(app)
