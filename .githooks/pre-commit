@@ -1,0 +1,29 @@
+#!/bin/sh
+echo "🔍 [Pre-Commit Hook] Running AI Service test suites..."
+
+# Locate Python in virtual environment (Windows or Unix)
+if [ -f ".venv/Scripts/python.exe" ]; then
+  PYTHON=".venv/Scripts/python.exe"
+elif [ -f "venv/bin/python" ]; then
+  PYTHON="venv/bin/python"
+elif [ -f ".venv/bin/python" ]; then
+  PYTHON=".venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON="python3"
+else
+  PYTHON="python"
+fi
+
+$PYTHON -m pytest tests/
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo "❌ [Pre-Commit Hook] AI Service tests failed! Commit aborted."
+  echo "Please resolve test failures before committing."
+  exit 1
+fi
+
+echo "✅ [Pre-Commit Hook] All AI Service tests passed!"
+exit 0
+
