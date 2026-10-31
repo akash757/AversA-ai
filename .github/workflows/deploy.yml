@@ -55,6 +55,10 @@ jobs:
             git pull origin main
             venv/bin/pip install -r requirements.txt
             pm2 restart ecosystem.config.js --update-env || pm2 start ecosystem.config.js
-            sleep 3
-            # Health check after restart - fail deploy if AI service does not answer
-            curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:8000/health || (echo "AI Service health check failed!" && exit 1)
+            sleep 5
+            # Health check after restart - retries while uvicorn initializes; dumps logs on failure
+            curl --fail --retry 10 --retry-connrefused --retry-delay 2 http://127.0.0.1:8000/health || {
+              echo "❌ AI Service health check failed! Dumping recent PM2 logs:"
+              pm2 logs aversa-ai --lines 50 --nostream
+              exit 1
+            }
