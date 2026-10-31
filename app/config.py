@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str
     GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     DEFAULT_TIMEZONE: str = "Asia/Kolkata"
+    ENVIRONMENT: str = "production"
     LANGSMITH_TRACING: bool = False
     LANGSMITH_API_KEY: str = ""
     LANGCHAIN_PROJECT: str = "the-AversA-agent"

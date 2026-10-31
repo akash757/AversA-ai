@@ -5,8 +5,41 @@ on:
     branches:
       - main
 
+concurrency:
+  group: aversa-ai-deploy
+  cancel-in-progress: false
+
 jobs:
+  test:
+    name: Run AI Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run Unit Tests
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'mock-key-for-offline-tests-only' }}
+          INTERNAL_SERVICE_TOKEN: ${{ secrets.INTERNAL_SERVICE_TOKEN || 'cfaa676996b8fd261b0adb04ef68acf8de2931ae055cf9e72a60a685af1b8615' }}
+        run: |
+          pytest tests/ -v
+
   deploy:
+    name: Deploy AI Service to EC2
+    needs: [test]
     runs-on: ubuntu-latest
 
     steps:
@@ -20,4 +53,7 @@ jobs:
             cd /home/ubuntu/apps/AversA-ai
             git pull origin main
             venv/bin/pip install -r requirements.txt
-            pm2 restart aversa-ai
+            pm2 restart ecosystem.config.js --update-env || pm2 start ecosystem.config.js
+            sleep 3
+            # Health check after restart - fail deploy if AI service does not answer
+            curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:8000/health || (echo "AI Service health check failed!" && exit 1)

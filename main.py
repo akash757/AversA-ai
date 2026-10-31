@@ -1,14 +1,19 @@
 import time
 from fastapi import FastAPI, Request
 import uvicorn
+from app.config import settings
 from app.routes import health_router, day_one_router, transcript_analysis_router
 from app.utils.logger import logger
 
+is_production = settings.ENVIRONMENT.lower() == "production"
+
+# Disable Swagger / ReDoc / OpenAPI schema generation in production
 app = FastAPI(
     title="AversA AI Service",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if is_production else "/docs",
+    redoc_url=None,
+    openapi_url=None if is_production else "/openapi.json",
 )
 
 
