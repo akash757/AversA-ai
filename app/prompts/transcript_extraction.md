@@ -109,16 +109,16 @@ par_id_2 | Sarah Smith | internal
 3. **Empty Output**: If the chunk contains only small talk, status recaps, or no qualifying items, return an empty list: `{"items": []}`. Never fabricate items.
 4. **Chunk Limit**: Output at most **30** highest-quality extracted items per chunk.
 5. **Confidence Calibration**:
-   - Do NOT mark every item as `high`. Real client dialogue contains qualifications, hedged remarks, and ambiguities.
-   - `high`: Explicit, direct, unambiguous statements backed by clear consensus or explicit client confirmation.
-   - `medium`: Tentative agreements, hedged speech (*"I think so"*, *"probably"*, *"we might"*, *"as far as I know"*), or statements that were not explicitly confirmed by all key parties.
-   - `low`: Implied points, unmapped or plain speakers, noisy transcript dialogue, or phrased tentatively.
+   - **MANDATORY**: Do NOT mark every item as `high`. Real client dialogue contains qualifications, estimates, hedged remarks, and conditional agreements. If 100% of your items are `high`, your extraction is poorly calibrated.
+   - `high`: Firm, explicit, unambiguous statements backed by clear consensus or explicit client confirmation without conditions or hesitation.
+   - `medium`: Tentative answers, hedged speech (*"probably"*, *"around"*, *"I think so"*, *"we might"*, *"as far as I know"*), estimates, or agreements with caveats/conditions (e.g. internal proposals the client only half-agreed to or agreed to with conditions).
+   - `low`: Speculative points, unconfirmed remarks, plain transcripts lacking speaker roles, or ideas mentioned casually without settled buy-in.
 
 ---
 
 ## EXAMPLES (Note: IDs shown below are illustrative; real outputs must use IDs from prompt input)
 
-### Example 1: Good Answer
+### Example 1: Good Answer (High Confidence)
 - **Transcript**:
   `[42] Sarah Smith (internal): What is your target go-live date for Phase 1?`
   `[43] John Doe (client): We need Phase 1 live in production by November 15th to align with Black Friday.`
@@ -143,7 +143,7 @@ par_id_2 | Sarah Smith | internal
 - **Extraction**:
   - *No requirement extracted.* (Alex made an internal technical proposal; John deferred it without confirming).
 
-### Example 4: Action Item with "I"
+### Example 4: Action Item with "I" (High Confidence)
 - **Transcript**:
   `[102] John Doe (client): I will send our current database schema and API documentation by this Friday.`
 - **Extraction**:
@@ -154,3 +154,33 @@ par_id_2 | Sarah Smith | internal
   - `duePhrase`: `"by this Friday"`
   - `confidence`: `"high"`
   - `evidenceLineNumbers`: `[102]`
+
+### Example 5: Hedged Answer / Estimate (Medium Confidence)
+- **Transcript**:
+  `[115] Sarah Smith (internal): What is the average size of incoming batch files from suppliers?`
+  `[116] John Doe (client): It's probably around 50 megabytes, maybe up to 100 on peak days, though we haven't benchmarked it recently.`
+- **Extraction**:
+  - `type`: `"answer"`
+  - `text`: `"Average incoming batch file size is estimated around 50MB to 100MB."`
+  - `questionId`: `"q_id_from_open_questions"`
+  - `confidence`: `"medium"` (because the client explicitly hedged with "probably" and noted lack of recent benchmarking).
+  - `evidenceLineNumbers`: `[115, 116]`
+
+### Example 6: Conditional Agreement / Proposal Half-Agreed (Medium Confidence)
+- **Transcript**:
+  `[120] Alex Kumar (internal): We propose auto-cancelling unpaid orders after 48 hours.`
+  `[121] John Doe (client): That should be fine, provided warehouse managers can override the cancellation if a wire transfer is pending.`
+- **Extraction**:
+  - `type`: `"decision"`
+  - `text`: `"Auto-cancel unpaid orders after 48 hours with warehouse manager override for pending wire transfers."`
+  - `confidence`: `"medium"` (because the agreement has a required operational caveat/condition).
+  - `evidenceLineNumbers`: `[120, 121]`
+
+### Example 7: Speculative / Unconfirmed Item (Low Confidence)
+- **Transcript**:
+  `[130] Mark Lee (client): We might eventually need to integrate with SAP, but nothing is decided yet and we may stick with our current export.`
+- **Extraction**:
+  - `type`: `"requirement"`
+  - `text`: `"Potential future integration with SAP ERP."`
+  - `confidence`: `"low"` (tentative idea, "might eventually", explicitly unconfirmed).
+  - `evidenceLineNumbers`: `[130]`

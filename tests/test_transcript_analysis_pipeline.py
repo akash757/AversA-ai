@@ -199,6 +199,13 @@ def test_filter_follow_ups(service):
             reason="Client mentioned Stripe and Paypal but didn't confirm priority.",
             parentQuestionId="que_1",
         ),
+        # 1b. Valid follow-up exploring new discovery gap with parentQuestionId = None
+        RawLLMFollowUpQuestion(
+            topic="problem",
+            text="How do sales reps currently act on behalf of enterprise clients?",
+            reason="New operational gap identified during discussion.",
+            parentQuestionId=None,
+        ),
         # 2. Unknown parentQuestionId -> dropped (must be answered question)
         RawLLMFollowUpQuestion(
             topic="constraints",
@@ -227,6 +234,13 @@ def test_filter_follow_ups(service):
             reason="Need clarification on goals.",
             parentQuestionId="que_1",
         ),
+        # 5b. Near-duplicate paraphrase of existing question -> dropped via Jaccard
+        RawLLMFollowUpQuestion(
+            topic="goals",
+            text="What are your success metrics over 3 to 6 months?",
+            reason="Paraphrased question.",
+            parentQuestionId="que_1",
+        ),
         # 6. Relative date in follow-up -> dropped
         RawLLMFollowUpQuestion(
             topic="next_steps",
@@ -250,16 +264,20 @@ def test_filter_follow_ups(service):
         drop_counts=drop_counts,
     )
 
-    assert len(clean) == 1
+    assert len(clean) == 2
     assert clean[0].topic == "features"
     assert clean[0].parentQuestionId == "que_1"
     assert clean[0].text == "What payment gateways should be supported in MVP?"
+
+    assert clean[1].topic == "problem"
+    assert clean[1].parentQuestionId is None
+    assert clean[1].text == "How do sales reps currently act on behalf of enterprise clients?"
 
     # Check drop counter reasons
     assert drop_counts.get("unanswered_parent_followup") == 1
     assert drop_counts.get("invalid_topic") == 1
     assert drop_counts.get("empty_text") == 1
-    assert drop_counts.get("duplicate_existing_question") == 1
+    assert drop_counts.get("duplicate_existing_question") == 2
     assert drop_counts.get("relative_date_or_action_chase") == 2
 
 

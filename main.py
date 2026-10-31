@@ -42,7 +42,7 @@ async def log_requests(request: Request, call_next):
     except Exception as exc:
         duration_ms = (time.time() - start_time) * 1000
         logger.critical(
-            f"<-- {method} {path} 500 UNHANDLED EXCEPTION ({duration_ms:.1f}ms): {exc}",
+            f"<-- {method} {path} 500 UNHANDLED EXCEPTION ({duration_ms:.1f}ms): {type(exc).__name__}",
             exc_info=True,
         )
         raise

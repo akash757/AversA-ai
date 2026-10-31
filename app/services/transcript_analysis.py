@@ -44,6 +44,34 @@ ACTION_CHASE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+STOP_WORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "and", "or", "what", "which", "how", "do", "does",
+    "did", "can", "could", "should", "would", "your", "our", "their", "this", "that",
+    "over", "about", "into", "then", "there", "any", "some", "be", "been", "being",
+    "have", "has", "had",
+}
+
+
+def _normalize_token(t: str) -> str:
+    if len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
+        return t[:-1]
+    return t
+
+
+def _extract_content_tokens(text: str) -> Set[str]:
+    tokens = set(re.findall(r"\b[a-z0-9]+\b", text.lower()))
+    content_tokens = {_normalize_token(t) for t in tokens if t not in STOP_WORDS and len(t) > 1}
+    return content_tokens if content_tokens else {_normalize_token(t) for t in tokens}
+
+
+def _jaccard_similarity(set1: Set[str], set2: Set[str]) -> float:
+    if not set1 or not set2:
+        return 0.0
+    intersection = len(set1.intersection(set2))
+    union = len(set1.union(set2))
+    return intersection / union if union > 0 else 0.0
+
 
 class TranscriptAnalysisService:
     def __init__(self):
@@ -117,13 +145,20 @@ class TranscriptAnalysisService:
                     valid_participant_ids=valid_participant_ids,
                 )
 
-        tasks = [
-            process_chunk_with_sem(i, chunk)
+        task_objs = [
+            asyncio.create_task(process_chunk_with_sem(i, chunk))
             for i, chunk in enumerate(request.chunks)
         ]
 
-        # Concurrently execute all chunk extraction tasks
-        chunk_results = await asyncio.gather(*tasks)
+        try:
+            # Concurrently execute all chunk extraction tasks
+            chunk_results = await asyncio.gather(*task_objs)
+        except Exception:
+            for t in task_objs:
+                if not t.done():
+                    t.cancel()
+            await asyncio.gather(*task_objs, return_exceptions=True)
+            raise
 
         # Aggregate raw items and drop counts across chunks
         all_raw_items: List[Dict[str, Any]] = []
@@ -492,11 +527,16 @@ class TranscriptAnalysisService:
         )
 
         existing_question_texts = set()
+        existing_question_token_sets: List[Set[str]] = []
         if existing_questions:
             for q in existing_questions:
                 q_text = getattr(q, "text", None) or (q.get("text") if isinstance(q, dict) else "")
                 if q_text:
-                    existing_question_texts.add(re.sub(r"\s+", " ", q_text).strip().lower())
+                    clean_q = re.sub(r"\s+", " ", q_text).strip().lower()
+                    existing_question_texts.add(clean_q)
+                    existing_question_token_sets.append(_extract_content_tokens(clean_q))
+
+        accepted_fu_token_sets: List[Set[str]] = []
 
         for fu in raw_follow_ups:
             topic = (fu.topic or "").strip().lower()
@@ -514,9 +554,31 @@ class TranscriptAnalysisService:
                 drop_counts["empty_reason"] = drop_counts.get("empty_reason", 0) + 1
                 continue
 
-            # Rule: Follow-ups must never duplicate existing open questions
+            # Rule: Follow-ups must never duplicate existing open questions or near-duplicate accepted follow-ups
             norm_fu_text = re.sub(r"\s+", " ", text).strip().lower()
             if norm_fu_text in existing_question_texts:
+                drop_counts["duplicate_existing_question"] = (
+                    drop_counts.get("duplicate_existing_question", 0) + 1
+                )
+                continue
+
+            fu_tokens = _extract_content_tokens(norm_fu_text)
+            is_near_dup = False
+            for ex_tokens in existing_question_token_sets:
+                if _jaccard_similarity(fu_tokens, ex_tokens) >= 0.55:
+                    is_near_dup = True
+                    break
+            if is_near_dup:
+                drop_counts["duplicate_existing_question"] = (
+                    drop_counts.get("duplicate_existing_question", 0) + 1
+                )
+                continue
+
+            for acc_tokens in accepted_fu_token_sets:
+                if _jaccard_similarity(fu_tokens, acc_tokens) >= 0.55:
+                    is_near_dup = True
+                    break
+            if is_near_dup:
                 drop_counts["duplicate_existing_question"] = (
                     drop_counts.get("duplicate_existing_question", 0) + 1
                 )
@@ -529,13 +591,18 @@ class TranscriptAnalysisService:
                 )
                 continue
 
-            # Rule: parentQuestionId MUST be a question answered in this call
-            parent_id = (fu.parentQuestionId or "").strip()
-            if not parent_id or parent_id not in answered_ids:
-                drop_counts["unanswered_parent_followup"] = (
-                    drop_counts.get("unanswered_parent_followup", 0) + 1
-                )
-                continue
+            # Rule: If parentQuestionId is provided, it MUST be a question answered in this call.
+            # If parentQuestionId is null/omitted, it explores a new discovery gap (allowed).
+            raw_parent_id = (fu.parentQuestionId or "").strip()
+            if raw_parent_id:
+                if raw_parent_id not in answered_ids:
+                    drop_counts["unanswered_parent_followup"] = (
+                        drop_counts.get("unanswered_parent_followup", 0) + 1
+                    )
+                    continue
+                parent_id: Optional[str] = raw_parent_id
+            else:
+                parent_id = None
 
             clean_follow_ups.append(
                 FollowUpQuestionOutput(
@@ -545,6 +612,7 @@ class TranscriptAnalysisService:
                     parentQuestionId=parent_id,
                 )
             )
+            accepted_fu_token_sets.append(fu_tokens)
 
             if len(clean_follow_ups) == 5:
                 # Any remaining candidate follow-ups are dropped by the 5-item cap
