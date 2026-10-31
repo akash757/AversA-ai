@@ -32,10 +32,11 @@ jobs:
 
       - name: Run Unit Tests
         env:
+          PYTHONPATH: .
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'mock-key-for-offline-tests-only' }}
           INTERNAL_SERVICE_TOKEN: ${{ secrets.INTERNAL_SERVICE_TOKEN || 'cfaa676996b8fd261b0adb04ef68acf8de2931ae055cf9e72a60a685af1b8615' }}
         run: |
-          pytest tests/ -v
+          python -m pytest tests/ -v
 
   deploy:
     name: Deploy AI Service to EC2
